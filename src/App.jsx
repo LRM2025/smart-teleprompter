@@ -1811,6 +1811,15 @@ Happy recording!`);
       );
     }
 
+    if (aimMarkerType === "cross") {
+      return (
+        <svg {...aimMarkerCommon}>
+          <path d="M21 6 V36" strokeWidth="2.5" />
+          <path d="M6 21 H36" strokeWidth="2.5" />
+        </svg>
+      );
+    }
+
     if (aimMarkerType === "crosshair") {
       return (
         <svg {...aimMarkerCommon}>
@@ -3397,9 +3406,10 @@ Happy recording!`);
                     }}
                   >
                     {[
-                      ["crosshair", "Cross"],
+                      ["cross", "Cross"],
                       ["snap", "Snap"],
                       ["square", "Square"],
+                      ["brackets", "Corners"],
                       ["dot", "Dot"],
                       ["line", "Line"],
                     ].map(([value, label]) => (
