@@ -178,6 +178,7 @@ Happy recording!`);
   const [highlightColor, setHighlightColor] = useState("#ffeb3b");
 
   const [isListening, setIsListening] = useState(false);
+  const [micNotice, setMicNotice] = useState("");
   const [showSettings, setShowSettings] = useState(false);
   const [currentWordIndex, setCurrentWordIndex] = useState(-1);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -289,6 +290,18 @@ Happy recording!`);
   const lastMicResultTsRef = useRef(performance.now());
   const micForceStoppedRef = useRef(false);
   const micRestartTimeoutRef = useRef(null);
+  const micNoticeTimeoutRef = useRef(null);
+
+  function showMicNotice(message) {
+    setMicNotice(message);
+    if (micNoticeTimeoutRef.current) {
+      clearTimeout(micNoticeTimeoutRef.current);
+    }
+    micNoticeTimeoutRef.current = setTimeout(() => {
+      setMicNotice("");
+      micNoticeTimeoutRef.current = null;
+    }, 8000);
+  }
 
   function hardStopRecognition() {
     try {
@@ -337,6 +350,7 @@ Happy recording!`);
     rec.onstart = () => {
       recognizingRef.current = true;
       micForceStoppedRef && (micForceStoppedRef.current = false);
+      setMicNotice("");
     };
 
     rec.onresult = (event) => {
@@ -408,21 +422,43 @@ Happy recording!`);
 
     rec.onerror = (event) => {
       console.error("Speech recognition error:", event.error);
+
       if (
-        event.error === "no-speech" ||
-        event.error === "audio-capture" ||
-        event.error === "network" ||
         event.error === "not-allowed" ||
         event.error === "service-not-allowed"
       ) {
-        if (isListeningRef.current && !micForceStoppedRef.current) {
-          if (micRestartTimeoutRef.current)
-            clearTimeout(micRestartTimeoutRef.current);
-          micRestartTimeoutRef.current = setTimeout(() => {
-            if (isListeningRef.current && !micForceStoppedRef.current)
-              safeRestartRecognition(300);
-          }, 0);
-        }
+        showMicNotice(
+          "Microphone access was blocked by Chrome or macOS. Check browser microphone permissions and close other listening tabs."
+        );
+        setIsListening(false);
+        isListeningRef.current = false;
+        hardStopRecognition();
+        return;
+      }
+
+      if (event.error === "audio-capture") {
+        showMicNotice(
+          "No microphone input was captured. Check the selected input device or close another app using the microphone."
+        );
+      } else if (event.error === "network") {
+        showMicNotice(
+          "Chrome speech recognition reported a network/service error. Voice tracking will retry automatically."
+        );
+      } else if (event.error && event.error !== "no-speech") {
+        showMicNotice(`Speech recognition error: ${event.error}`);
+      }
+
+      if (isListeningRef.current && !micForceStoppedRef.current) {
+        if (micRestartTimeoutRef.current)
+          clearTimeout(micRestartTimeoutRef.current);
+        micRestartTimeoutRef.current = setTimeout(() => {
+          if (isListeningRef.current && !micForceStoppedRef.current)
+            safeRestartRecognition(
+              event.error === "no-speech" || event.error === "aborted"
+                ? 150
+                : 600
+            );
+        }, 0);
       }
     };
 
@@ -470,7 +506,14 @@ Happy recording!`);
       setTimeout(() => {
         try {
           recognitionRef.current && recognitionRef.current.start();
-        } catch (_) {}
+        } catch (error) {
+          console.error("Error starting recognition:", error);
+          if (isListeningRef.current && !micForceStoppedRef.current) {
+            showMicNotice(
+              "Could not start microphone tracking. Close other voice-recognition tabs and try again."
+            );
+          }
+        }
       }, Math.max(0, delayMs));
     } catch (_) {}
   }
@@ -1398,19 +1441,24 @@ Happy recording!`);
     if (isListening) {
       // Fully tear down immediately and release mic permissions
       setIsListening(false);
+      isListeningRef.current = false;
+      setMicNotice("");
       setIsPlaying(false);
       hardStopRecognition();
     } else {
       try {
-        // Recreate a fresh instance and start
+        // Set both state and ref before starting recognition. Chrome can emit
+        // onend/onerror immediately; the restart path must already know we are listening.
+        setIsListening(true);
+        isListeningRef.current = true;
+        setMicNotice("");
+        setIsPlaying(false);
         if (typeof micForceStoppedRef !== "undefined" && micForceStoppedRef) {
           try {
             micForceStoppedRef.current = false;
           } catch (_) {}
         }
-        safeRestartRecognition(150);
-        setIsListening(true);
-        setIsPlaying(false);
+        safeRestartRecognition(80);
 
         // Reset user interaction flag
         setUserIsInteracting(false);
@@ -3991,6 +4039,31 @@ Happy recording!`);
             <br />
             Only <strong>Auto Play</strong> mode is available.
           </div>
+        </div>
+      )}
+
+      {micNotice && (
+        <div
+          role="status"
+          aria-live="polite"
+          style={{
+            position: "fixed",
+            top: "82px",
+            left: "50%",
+            transform: "translateX(-50%)",
+            background: "rgba(255, 193, 7, 0.94)",
+            color: "#111",
+            padding: "10px 16px",
+            borderRadius: "10px",
+            maxWidth: "min(720px, 90vw)",
+            textAlign: "center",
+            zIndex: 2100,
+            fontSize: "14px",
+            fontWeight: "600",
+            boxShadow: "0 12px 30px rgba(0,0,0,0.35)",
+          }}
+        >
+          {micNotice}
         </div>
       )}
 
