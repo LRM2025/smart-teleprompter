@@ -23,7 +23,7 @@ describe("Settings persistence", () => {
       expect(saved).not.toBeNull();
     });
     const settings = JSON.parse(localStorage.getItem(SETTINGS_KEY));
-    expect(settings).toHaveProperty("settingsProfileVersion", 2);
+    expect(settings).toHaveProperty("settingsProfileVersion", 3);
     expect(settings).toHaveProperty("fontSize", 36);
     expect(settings).toHaveProperty("lineHeight", 1.55);
     expect(settings).toHaveProperty("bgColor");
@@ -112,7 +112,7 @@ describe("Settings persistence", () => {
 
     await waitFor(() => {
       const saved = JSON.parse(localStorage.getItem(SETTINGS_KEY));
-      expect(saved.settingsProfileVersion).toBe(2);
+      expect(saved.settingsProfileVersion).toBe(3);
       expect(saved.fontSize).toBe(36);
     });
 

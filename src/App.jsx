@@ -556,7 +556,7 @@ Happy recording!`);
   };
 
   const SETTINGS_KEY = "tp_settings_v1";
-  const SETTINGS_PROFILE_VERSION = 2;
+  const SETTINGS_PROFILE_VERSION = 3;
   const defaultSettings = {
     settingsProfileVersion: SETTINGS_PROFILE_VERSION,
     fontSize: 36,
