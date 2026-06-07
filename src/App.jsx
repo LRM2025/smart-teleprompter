@@ -189,6 +189,7 @@ Happy recording!`);
   const [micNotice, setMicNotice] = useState("");
   const [showSettings, setShowSettings] = useState(false);
   const [currentWordIndex, setCurrentWordIndex] = useState(-1);
+  const [guideWordIndex, setGuideWordIndex] = useState(-1);
   const [isPlaying, setIsPlaying] = useState(false);
   const [followEnabled, setFollowEnabled] = useState(false);
   const [lookaheadWindow, setLookaheadWindow] = useState(10);
@@ -204,6 +205,7 @@ Happy recording!`);
   const [aimContrast, setAimContrast] = useState(1.1);
   const [aimScale, setAimScale] = useState(1);
   const [showHighlight, setShowHighlight] = useState(true);
+  const [smoothLiveGuide, setSmoothLiveGuide] = useState(true);
   const [showReadAheadCue, setShowReadAheadCue] = useState(true);
   const [readAheadWords, setReadAheadWords] = useState(2);
   const [aimOffsetX, setAimOffsetX] = useState(0);
@@ -289,6 +291,10 @@ Happy recording!`);
   const lineStartIndexRef = useRef([]);
   const isListeningRef = useRef(false);
   const currentWordIndexRef = useRef(-1);
+  const guideWordIndexRef = useRef(-1);
+  const lastRecognizedIndexRef = useRef(-1);
+  const lastRecognizedAtRef = useRef(performance.now());
+  const estimatedWordsPerSecondRef = useRef(2.35);
   const textContainerRef = useRef(null);
   const autoScrollInterval = useRef(null);
   const autoRafIdRef = useRef(null);
@@ -567,7 +573,7 @@ Happy recording!`);
   };
 
   const SETTINGS_KEY = "tp_settings_v1";
-  const SETTINGS_PROFILE_VERSION = 4;
+  const SETTINGS_PROFILE_VERSION = 5;
   const defaultSettings = {
     settingsProfileVersion: SETTINGS_PROFILE_VERSION,
     fontSize: 36,
@@ -582,6 +588,7 @@ Happy recording!`);
     centerPaddingVh: 48,
     showAim: true,
     showListeningStatus: false,
+    smoothLiveGuide: true,
     showReadAheadCue: true,
     readAheadWords: 2,
     aimMarkerType: "square",
@@ -642,6 +649,8 @@ Happy recording!`);
           defaultSettings.paragraphHighlightOpacity;
       if (next.showReadAheadCue == null)
         next.showReadAheadCue = defaultSettings.showReadAheadCue;
+      if (next.smoothLiveGuide == null)
+        next.smoothLiveGuide = defaultSettings.smoothLiveGuide;
       if (next.readAheadWords == null)
         next.readAheadWords = defaultSettings.readAheadWords;
     }
@@ -665,6 +674,7 @@ Happy recording!`);
     if (s.showAim != null) setShowAim(s.showAim);
     if (s.showListeningStatus != null)
       setShowListeningStatus(!!s.showListeningStatus);
+    if (s.smoothLiveGuide != null) setSmoothLiveGuide(!!s.smoothLiveGuide);
     if (s.showReadAheadCue != null) setShowReadAheadCue(!!s.showReadAheadCue);
     if (s.readAheadWords != null) setReadAheadWords(s.readAheadWords);
     if (s.aimMarkerType) setAimMarkerType(s.aimMarkerType);
@@ -705,6 +715,7 @@ Happy recording!`);
     centerPaddingVh,
     showAim,
     showListeningStatus,
+    smoothLiveGuide,
     showReadAheadCue,
     readAheadWords,
     aimMarkerType,
@@ -740,6 +751,7 @@ Happy recording!`);
     setCenterPaddingVh(defaultSettings.centerPaddingVh);
     setShowAim(defaultSettings.showAim);
     setShowListeningStatus(defaultSettings.showListeningStatus);
+    setSmoothLiveGuide(defaultSettings.smoothLiveGuide);
     setShowReadAheadCue(defaultSettings.showReadAheadCue);
     setReadAheadWords(defaultSettings.readAheadWords);
     setAimMarkerType(defaultSettings.aimMarkerType);
@@ -1026,6 +1038,7 @@ Happy recording!`);
       centerPaddingVh,
       showAim,
       showListeningStatus,
+      smoothLiveGuide,
       showReadAheadCue,
       readAheadWords,
       aimMarkerType,
@@ -1065,6 +1078,7 @@ Happy recording!`);
     centerPaddingVh,
     showAim,
     showListeningStatus,
+    smoothLiveGuide,
     showReadAheadCue,
     readAheadWords,
     aimMarkerType,
@@ -1425,7 +1439,10 @@ Happy recording!`);
     const active = isListening || isPlaying;
     if (!active && !followEnabled) return;
     if (!textContainerRef.current) return;
-    const cueWordIndex = getActiveWordIndex(currentWordIndex);
+    const cueWordIndex =
+      smoothLiveGuide && isListening
+        ? getActiveWordIndex(guideWordIndex)
+        : getActiveWordIndex(currentWordIndex);
     if (cueWordIndex < 0) return;
 
     const logicalLineIdx = getLineIdxForWord(cueWordIndex);
@@ -1443,9 +1460,11 @@ Happy recording!`);
     }
   }, [
     currentWordIndex,
+    guideWordIndex,
     followEnabled,
     isListening,
     isPlaying,
+    smoothLiveGuide,
     showReadAheadCue,
     readAheadWords,
     fontSize,
@@ -1465,7 +1484,10 @@ Happy recording!`);
     const tick = () => {
       const active = isListening || isPlaying;
       if (active && !programmaticScrollRef.current) {
-        const idx = getActiveWordIndex(currentWordIndexRef.current);
+        const idx =
+          smoothLiveGuide && isListening
+            ? getActiveWordIndex(guideWordIndexRef.current)
+            : getActiveWordIndex(currentWordIndexRef.current);
         if (idx >= 0) {
           const approxLinePx = Math.max(1, fontSize * lineHeight * 1.0);
           const delta = Math.abs(getWordAnchorDelta(idx));
@@ -1671,9 +1693,99 @@ Happy recording!`);
   useEffect(() => {
     isListeningRef.current = isListening;
   }, [isListening]);
+
   useEffect(() => {
     currentWordIndexRef.current = currentWordIndex;
-  }, [currentWordIndex]);
+    const now = performance.now();
+    const previousIndex = lastRecognizedIndexRef.current;
+    const previousAt = lastRecognizedAtRef.current;
+
+    if (currentWordIndex >= 0) {
+      if (previousIndex >= 0 && currentWordIndex > previousIndex) {
+        const deltaWords = currentWordIndex - previousIndex;
+        const deltaSeconds = (now - previousAt) / 1000;
+        if (deltaSeconds >= 0.15 && deltaSeconds <= 8) {
+          const observedWordsPerSecond = deltaWords / deltaSeconds;
+          const clampedWordsPerSecond = Math.max(
+            1.25,
+            Math.min(3.8, observedWordsPerSecond)
+          );
+          estimatedWordsPerSecondRef.current =
+            estimatedWordsPerSecondRef.current * 0.7 +
+            clampedWordsPerSecond * 0.3;
+        }
+      }
+
+      lastRecognizedIndexRef.current = currentWordIndex;
+      lastRecognizedAtRef.current = now;
+
+      const lead =
+        smoothLiveGuide && isListening && showReadAheadCue
+          ? Math.max(0, Math.min(8, Math.round(Number(readAheadWords) || 0)))
+          : 0;
+      const nextGuideIndex = getActiveWordIndex(currentWordIndex + lead);
+      if (nextGuideIndex >= 0) {
+        setGuideWordIndex((previousGuideIndex) =>
+          smoothLiveGuide && isListening
+            ? Math.max(previousGuideIndex, nextGuideIndex)
+            : nextGuideIndex
+        );
+      }
+    } else {
+      setGuideWordIndex(-1);
+    }
+  }, [
+    currentWordIndex,
+    isListening,
+    smoothLiveGuide,
+    showReadAheadCue,
+    readAheadWords,
+  ]);
+
+  useEffect(() => {
+    guideWordIndexRef.current = guideWordIndex;
+  }, [guideWordIndex]);
+
+  useEffect(() => {
+    if (!smoothLiveGuide || !isListening) {
+      const activeIndex = getActiveWordIndex(currentWordIndexRef.current);
+      setGuideWordIndex(activeIndex);
+      return;
+    }
+
+    let rafId = null;
+    const tick = (now) => {
+      const recognizedIndex = currentWordIndexRef.current;
+      if (recognizedIndex >= 0) {
+        const lead = showReadAheadCue
+          ? Math.max(0, Math.min(8, Math.round(Number(readAheadWords) || 0)))
+          : 0;
+        const elapsedSeconds = Math.max(
+          0,
+          Math.min(2.2, (now - lastRecognizedAtRef.current) / 1000)
+        );
+        const predictedAdvance = Math.floor(
+          elapsedSeconds * estimatedWordsPerSecondRef.current
+        );
+        const nextGuideIndex = getActiveWordIndex(
+          recognizedIndex + lead + predictedAdvance
+        );
+        if (
+          nextGuideIndex >= 0 &&
+          nextGuideIndex !== guideWordIndexRef.current
+        ) {
+          guideWordIndexRef.current = nextGuideIndex;
+          setGuideWordIndex(nextGuideIndex);
+        }
+      }
+      rafId = requestAnimationFrame(tick);
+    };
+
+    rafId = requestAnimationFrame(tick);
+    return () => {
+      if (rafId) cancelAnimationFrame(rafId);
+    };
+  }, [isListening, smoothLiveGuide, showReadAheadCue, readAheadWords]);
 
   useEffect(() => {
     if ("webkitSpeechRecognition" in window || "SpeechRecognition" in window) {
@@ -1729,6 +1841,11 @@ Happy recording!`);
           } catch (_) {}
         }
         safeRestartRecognition(80);
+        lastRecognizedAtRef.current = performance.now();
+        if (currentWordIndexRef.current < 0) {
+          guideWordIndexRef.current = -1;
+          setGuideWordIndex(-1);
+        }
 
         // Reset user interaction flag
         setUserIsInteracting(false);
@@ -2031,7 +2148,11 @@ Happy recording!`);
     prevLineIdxRef.current = -1;
     prevVisualLineIdxRef.current = -1;
     currentWordIndexRef.current = -1;
+    guideWordIndexRef.current = -1;
+    lastRecognizedIndexRef.current = -1;
+    lastRecognizedAtRef.current = performance.now();
     setCurrentWordIndex(-1);
+    setGuideWordIndex(-1);
 
     // Hard scroll to top (container and window)
     programmaticScrollRef.current = true;
@@ -2165,7 +2286,11 @@ Happy recording!`);
     );
   };
 
-  const activeWordIndex = getActiveWordIndex(currentWordIndex);
+  const recognizedWordIndex = getActiveWordIndex(currentWordIndex);
+  const visualGuideWordIndex =
+    smoothLiveGuide && isListening && guideWordIndex >= 0
+      ? getActiveWordIndex(guideWordIndex)
+      : recognizedWordIndex;
 
   return (
     <main
@@ -3057,6 +3182,47 @@ Happy recording!`);
                       document.addEventListener("mouseup", handleMouseUp);
                     }}
                   />
+                </div>
+              </div>
+
+              <div style={{ marginBottom: "20px" }}>
+                <label
+                  style={{
+                    color: "white",
+                    display: "block",
+                    marginBottom: "8px",
+                  }}
+                >
+                  Smooth live guide
+                </label>
+                <button
+                  onClick={() => setSmoothLiveGuide((value) => !value)}
+                  style={{
+                    width: "100%",
+                    padding: "10px 12px",
+                    borderRadius: "8px",
+                    border: "1px solid #555",
+                    background: smoothLiveGuide ? "#2e7d32" : "#1f1f1f",
+                    color: "white",
+                    cursor: "pointer",
+                    fontWeight: "bold",
+                    marginBottom: "8px",
+                  }}
+                >
+                  {smoothLiveGuide
+                    ? "On - guide keeps moving while you speak"
+                    : "Off - original recognized-word tracking"}
+                </button>
+                <div
+                  style={{
+                    color: "#aaa",
+                    fontSize: "12px",
+                    marginBottom: "8px",
+                  }}
+                >
+                  Uses speech recognition to sync position, then keeps the
+                  reading guide moving with your estimated speaking pace instead
+                  of waiting for every delayed browser result.
                 </div>
               </div>
 
@@ -4488,7 +4654,8 @@ Happy recording!`);
             const lineStart = lineStartIndex[lineIdx] || 0;
             const lineEnd = lineStart + lineWordsLocal.length - 1;
             const isCurrentLine =
-              activeWordIndex >= lineStart && activeWordIndex <= lineEnd;
+              visualGuideWordIndex >= lineStart &&
+              visualGuideWordIndex <= lineEnd;
             return (
               <div
                 key={lineIdx}
@@ -4507,13 +4674,17 @@ Happy recording!`);
               >
                 {lineWordsLocal.map((word, i) => {
                   const index = lineStart + i;
-                  const isCurrent = index === activeWordIndex;
+                  const isGuide = index === visualGuideWordIndex;
+                  const isRecognized =
+                    recognizedWordIndex >= 0 &&
+                    index === recognizedWordIndex &&
+                    index !== visualGuideWordIndex;
                   const isUpcoming =
                     showReadAheadCue &&
                     currentWordIndex >= 0 &&
-                    index > activeWordIndex &&
+                    index > visualGuideWordIndex &&
                     index <=
-                      activeWordIndex +
+                      visualGuideWordIndex +
                         Math.max(
                           0,
                           Math.min(8, Math.round(Number(readAheadWords) || 0))
@@ -4524,31 +4695,44 @@ Happy recording!`);
                       id={`word-${index}`}
                       style={{
                         backgroundColor:
-                          isCurrent && showHighlight
+                          isGuide && showHighlight
                             ? highlightColor
+                            : isRecognized && showHighlight
+                            ? `${highlightColor}20`
                             : isUpcoming && showHighlight
                             ? `${highlightColor}18`
                             : "transparent",
                         color:
-                          isCurrent && showHighlight ? "#050505" : textColor,
-                        opacity: isCurrent
+                          isGuide && showHighlight ? "#050505" : textColor,
+                        opacity: isGuide
                           ? 1
+                          : isRecognized
+                          ? Math.max(inactiveTextOpacity, 0.86)
                           : isUpcoming
                           ? Math.max(inactiveTextOpacity, 0.92)
                           : inactiveTextOpacity,
                         borderRadius: "2px",
                         boxShadow:
-                          isCurrent && showHighlight
+                          isGuide && showHighlight
                             ? "0 0 0 1px rgba(0,0,0,0.25)"
+                            : isRecognized && showHighlight
+                            ? `inset 0 -0.12em 0 ${highlightColor}88`
                             : isUpcoming && showHighlight
                             ? `inset 0 -0.12em 0 ${highlightColor}66`
                             : "none",
                         transition:
                           "background-color 0.08s ease, color 0.08s ease, opacity 0.08s ease, box-shadow 0.08s ease",
-                        fontWeight: isCurrent && showHighlight ? 700 : "normal",
+                        fontWeight: isGuide && showHighlight ? 700 : "normal",
                         cursor: "pointer",
                       }}
-                      onClick={() => setCurrentWordIndex(index)}
+                      onClick={() => {
+                        currentWordIndexRef.current = index;
+                        guideWordIndexRef.current = index;
+                        lastRecognizedIndexRef.current = index;
+                        lastRecognizedAtRef.current = performance.now();
+                        setCurrentWordIndex(index);
+                        setGuideWordIndex(index);
+                      }}
                     >
                       {word}{" "}
                     </span>
