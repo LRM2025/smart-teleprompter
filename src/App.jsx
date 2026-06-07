@@ -189,14 +189,16 @@ Happy recording!`);
   const [showCenterLine, setShowCenterLine] = useState(false);
   const [showAim, setShowAim] = useState(true);
   const [showListeningStatus, setShowListeningStatus] = useState(false);
-  const [aimMarkerType, setAimMarkerType] = useState("elgato");
+  const [aimMarkerType, setAimMarkerType] = useState("square");
   const [aimColor, setAimColor] = useState("#8fb8ff");
   const [aimBrightness, setAimBrightness] = useState(1);
   const [aimContrast, setAimContrast] = useState(1.1);
+  const [aimScale, setAimScale] = useState(1);
   const [showHighlight, setShowHighlight] = useState(true);
   const [aimOffsetX, setAimOffsetX] = useState(0);
   const [aimOffsetY, setAimOffsetY] = useState(0);
   const [textOpacity, setTextOpacity] = useState(0.8);
+  const [inactiveTextOpacity, setInactiveTextOpacity] = useState(1);
   const [aimOpacity, setAimOpacity] = useState(1);
   const [uiOpacity, setUiOpacity] = useState(0.9);
   const [sidePaddingVw, setSidePaddingVw] = useState(10);
@@ -359,9 +361,10 @@ Happy recording!`);
 
       const isFinal = !!(chosen && chosen.isFinal);
 
-      // ΝΕΟΣ ΚΩΔΙΚΑΣ: Για interim results, χρησιμοποίησε μόνο την τελευταία λέξη
+      // Use the latest interim context, not only the last word. This keeps
+      // highlighting responsive while reducing false jumps on common words.
       const tokensToUse =
-        !isFinal && tokens.length > 1 ? tokens.slice(-1) : tokens;
+        !isFinal && tokens.length > 3 ? tokens.slice(-3) : tokens;
 
       // mic activity indicator
       setIsSpeaking(true);
@@ -395,8 +398,8 @@ Happy recording!`);
         );
       if (nextIndex === -1) {
         const { index } = tryAdvanceByTokens(tokensToUse, startIndex, {
-          maxWindow: lookaheadWindow,
-          maxSoftSkip: 2, // Πιο aggressive για αγγλικά
+          maxWindow: Math.max(lookaheadWindow, 14),
+          maxSoftSkip: 3,
         });
         nextIndex = index;
       }
@@ -491,13 +494,15 @@ Happy recording!`);
     centerPaddingVh: 45,
     showAim: true,
     showListeningStatus: false,
-    aimMarkerType: "elgato",
+    aimMarkerType: "square",
     aimColor: "#8fb8ff",
     aimBrightness: 1,
     aimContrast: 1.1,
+    aimScale: 1,
     aimOffsetX: 0,
     aimOffsetY: 0,
     textOpacity: 0.8,
+    inactiveTextOpacity: 1,
     aimOpacity: 1,
     uiOpacity: 0.9,
     renderMarkdown: false,
@@ -526,9 +531,11 @@ Happy recording!`);
     setAimColor(defaultSettings.aimColor);
     setAimBrightness(defaultSettings.aimBrightness);
     setAimContrast(defaultSettings.aimContrast);
+    setAimScale(defaultSettings.aimScale);
     setAimOffsetX(defaultSettings.aimOffsetX);
     setAimOffsetY(defaultSettings.aimOffsetY);
     setTextOpacity(defaultSettings.textOpacity);
+    setInactiveTextOpacity(defaultSettings.inactiveTextOpacity);
     setAimOpacity(defaultSettings.aimOpacity);
     setUiOpacity(defaultSettings.uiOpacity);
     setRenderMarkdown(defaultSettings.renderMarkdown);
@@ -675,9 +682,12 @@ Happy recording!`);
       if (s.aimColor) setAimColor(s.aimColor);
       if (s.aimBrightness != null) setAimBrightness(s.aimBrightness);
       if (s.aimContrast != null) setAimContrast(s.aimContrast);
+      if (s.aimScale != null) setAimScale(s.aimScale);
       if (s.aimOffsetX != null) setAimOffsetX(s.aimOffsetX);
       if (s.aimOffsetY != null) setAimOffsetY(s.aimOffsetY);
       if (s.textOpacity != null) setTextOpacity(s.textOpacity);
+      if (s.inactiveTextOpacity != null)
+        setInactiveTextOpacity(s.inactiveTextOpacity);
       if (s.aimOpacity != null) setAimOpacity(s.aimOpacity);
       if (s.uiOpacity != null) setUiOpacity(s.uiOpacity);
       if (s.renderMarkdown != null) setRenderMarkdown(s.renderMarkdown);
@@ -711,9 +721,11 @@ Happy recording!`);
       aimColor,
       aimBrightness,
       aimContrast,
+      aimScale,
       aimOffsetX,
       aimOffsetY,
       textOpacity,
+      inactiveTextOpacity,
       aimOpacity,
       uiOpacity,
       renderMarkdown,
@@ -746,9 +758,11 @@ Happy recording!`);
     aimColor,
     aimBrightness,
     aimContrast,
+    aimScale,
     aimOffsetX,
     aimOffsetY,
     textOpacity,
+    inactiveTextOpacity,
     aimOpacity,
     uiOpacity,
     renderMarkdown,
@@ -1122,7 +1136,7 @@ Happy recording!`);
 
     if (logicalChanged || visualChanged) {
       scrollAnimTokenRef.current++;
-      centerOnWordSmooth(currentWordIndex);
+      centerOnWordSmooth(currentWordIndex, isListening ? 420 : 900);
     }
   }, [
     currentWordIndex,
@@ -1152,7 +1166,7 @@ Happy recording!`);
           const delta = Math.abs(getWordAnchorDelta(idx));
           if (delta > approxLinePx * 0.9) {
             scrollAnimTokenRef.current++;
-            centerOnWordSmooth(idx, 650);
+            centerOnWordSmooth(idx, isListening ? 420 : 650);
           }
         }
       }
@@ -1709,12 +1723,13 @@ Happy recording!`);
     }, 0);
   };
 
-  const aimMarkerSize = aimMarkerType === "line" ? 64 : 42;
+  const aimMarkerSize = Math.round((aimMarkerType === "line" ? 64 : 42) * aimScale);
   const aimMarkerFilter = `brightness(${aimBrightness}) contrast(${aimContrast})`;
+  const aimMarkerViewBoxSize = aimMarkerType === "line" ? 64 : 42;
   const aimMarkerCommon = {
     width: aimMarkerSize,
     height: aimMarkerSize,
-    viewBox: `0 0 ${aimMarkerSize} ${aimMarkerSize}`,
+    viewBox: `0 0 ${aimMarkerViewBoxSize} ${aimMarkerViewBoxSize}`,
     fill: "none",
     stroke: aimColor,
     strokeWidth: 2.5,
@@ -1728,7 +1743,7 @@ Happy recording!`);
   };
 
   const renderAimMarker = () => {
-    const center = aimMarkerSize / 2;
+    const center = aimMarkerViewBoxSize / 2;
 
     if (aimMarkerType === "dot") {
       return (
@@ -1748,6 +1763,40 @@ Happy recording!`);
           <path d="M35 27 V35 H27" />
           <path d="M15 35 H7 V27" />
           <circle cx="21" cy="21" r="2.5" fill={aimColor} stroke="none" />
+        </svg>
+      );
+    }
+
+    if (aimMarkerType === "snap") {
+      return (
+        <svg {...aimMarkerCommon}>
+          <path d="M10 5 H5 V10" />
+          <path d="M32 5 H37 V10" />
+          <path d="M37 32 V37 H32" />
+          <path d="M10 37 H5 V32" />
+          <path d="M21 11 V16" opacity="0.65" />
+          <path d="M21 26 V31" opacity="0.65" />
+          <path d="M11 21 H16" opacity="0.65" />
+          <path d="M26 21 H31" opacity="0.65" />
+          <rect x="17" y="17" width="8" height="8" rx="2" opacity="0.85" />
+        </svg>
+      );
+    }
+
+    if (aimMarkerType === "elgato" || aimMarkerType === "square") {
+      return (
+        <svg {...aimMarkerCommon}>
+          <rect
+            x="8"
+            y="11"
+            width="26"
+            height="20"
+            rx="6"
+            opacity="0.82"
+            strokeWidth="3"
+          />
+          <circle cx="21" cy="21" r="5.5" opacity="0.82" />
+          <circle cx="21" cy="21" r="2" fill={aimColor} stroke="none" />
         </svg>
       );
     }
@@ -1777,13 +1826,9 @@ Happy recording!`);
 
     return (
       <svg {...aimMarkerCommon}>
-        <circle cx="21" cy="21" r="15" opacity="0.28" fill={aimColor} />
-        <circle cx="21" cy="21" r="14" opacity="0.75" />
-        <circle cx="21" cy="21" r="4" fill={aimColor} stroke="none" />
-        <path d="M21 2 V9" opacity="0.7" />
-        <path d="M21 33 V40" opacity="0.7" />
-        <path d="M2 21 H9" opacity="0.7" />
-        <path d="M33 21 H40" opacity="0.7" />
+        <path d="M21 7 V35" strokeWidth="2.5" opacity="0.92" />
+        <path d="M7 21 H35" strokeWidth="2.5" opacity="0.92" />
+        <circle cx="21" cy="21" r="3" fill={aimColor} stroke="none" />
       </svg>
     );
   };
@@ -2524,6 +2569,29 @@ Happy recording!`);
                     }}
                   />
                 </div>
+              </div>
+
+              <div style={{ marginBottom: "20px" }}>
+                <label
+                  style={{
+                    color: "white",
+                    display: "block",
+                    marginBottom: "8px",
+                  }}
+                >
+                  Inactive text brightness: {Math.round(inactiveTextOpacity * 100)}%
+                </label>
+                <input
+                  type="range"
+                  min="0.2"
+                  max="1"
+                  step="0.05"
+                  value={inactiveTextOpacity}
+                  onChange={(e) =>
+                    setInactiveTextOpacity(Number(e.target.value))
+                  }
+                  style={{ width: "100%" }}
+                />
               </div>
 
               <div style={{ marginBottom: "20px" }}>
@@ -3329,11 +3397,11 @@ Happy recording!`);
                     }}
                   >
                     {[
-                      ["elgato", "Soft blue"],
-                      ["crosshair", "Crosshair"],
-                      ["brackets", "Brackets"],
+                      ["crosshair", "Cross"],
+                      ["snap", "Snap"],
+                      ["square", "Square"],
                       ["dot", "Dot"],
-                      ["line", "Reading line"],
+                      ["line", "Line"],
                     ].map(([value, label]) => (
                       <button
                         key={value}
@@ -3396,10 +3464,11 @@ Happy recording!`);
                   >
                     <button
                       onClick={() => {
-                        setAimMarkerType("elgato");
+                        setAimMarkerType("square");
                         setAimColor("#8fb8ff");
                         setAimBrightness(1);
                         setAimContrast(1.1);
+                        setAimScale(1);
                         setAimOpacity(1);
                       }}
                       style={{
@@ -3415,6 +3484,27 @@ Happy recording!`);
                       Reset marker look
                     </button>
                   </div>
+                </div>
+
+                <div style={{ marginBottom: "16px" }}>
+                  <label
+                    style={{
+                      color: "white",
+                      display: "block",
+                      marginBottom: "8px",
+                    }}
+                  >
+                    Marker size: {Math.round(aimScale * 100)}%
+                  </label>
+                  <input
+                    type="range"
+                    min="0.5"
+                    max="2"
+                    step="0.05"
+                    value={aimScale}
+                    onChange={(e) => setAimScale(Number(e.target.value))}
+                    style={{ width: "100%" }}
+                  />
                 </div>
 
                 <div style={{ marginBottom: "16px" }}>
@@ -3843,9 +3933,10 @@ Happy recording!`);
                             ? highlightColor
                             : "transparent",
                         color: isCurrent && showHighlight ? "#000" : textColor,
+                        opacity: isCurrent ? 1 : inactiveTextOpacity,
                         borderRadius: "2px",
                         transition:
-                          "background-color 0.2s ease, color 0.2s ease",
+                          "background-color 0.12s ease, color 0.12s ease, opacity 0.12s ease",
                         fontWeight:
                           isCurrent && showHighlight ? "normal" : "normal",
                         cursor: "pointer",

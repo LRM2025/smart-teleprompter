@@ -20,10 +20,12 @@ describe("Settings persistence", () => {
     expect(settings).toHaveProperty("bgColor");
     expect(settings).toHaveProperty("textColor");
     expect(settings).toHaveProperty("showListeningStatus", false);
-    expect(settings).toHaveProperty("aimMarkerType", "elgato");
+    expect(settings).toHaveProperty("aimMarkerType", "square");
     expect(settings).toHaveProperty("aimColor", "#8fb8ff");
     expect(settings).toHaveProperty("aimBrightness", 1);
     expect(settings).toHaveProperty("aimContrast", 1.1);
+    expect(settings).toHaveProperty("aimScale", 1);
+    expect(settings).toHaveProperty("inactiveTextOpacity", 1);
   });
 
   it("restores custom settings from localStorage", async () => {
@@ -44,10 +46,12 @@ describe("Settings persistence", () => {
       aimColor: "#00aaff",
       aimBrightness: 1.25,
       aimContrast: 1.4,
+      aimScale: 1.35,
       showHighlight: true,
       aimOffsetX: 0,
       aimOffsetY: 0,
       textOpacity: 0.8,
+      inactiveTextOpacity: 0.45,
       aimOpacity: 1,
       uiOpacity: 0.9,
       sidePaddingVw: 10,
@@ -71,6 +75,8 @@ describe("Settings persistence", () => {
     expect(saved.aimColor).toBe("#00aaff");
     expect(saved.aimBrightness).toBe(1.25);
     expect(saved.aimContrast).toBe(1.4);
+    expect(saved.aimScale).toBe(1.35);
+    expect(saved.inactiveTextOpacity).toBe(0.45);
   });
 
   it("includes script text in saved settings", async () => {

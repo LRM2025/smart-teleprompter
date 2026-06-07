@@ -2,10 +2,13 @@
   "name": "Smart Teleprompter",
   "short_name": "Teleprompter",
   "description": "Free, open-source voice-controlled teleprompter with real-time speech tracking",
+  "id": "/app.html",
   "start_url": "/app.html",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#000000",
   "theme_color": "#000000",
+  "categories": ["productivity", "utilities", "video"],
   "icons": [
     {
       "src": "/web-app-manifest-192x192.png",
