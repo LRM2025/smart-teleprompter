@@ -613,6 +613,8 @@ Happy recording!`);
         next.inactiveTextOpacity = defaultSettings.inactiveTextOpacity;
       if (next.sidePaddingVw == null || next.sidePaddingVw === 10)
         next.sidePaddingVw = defaultSettings.sidePaddingVw;
+      if (next.paragraphSpacingPx == null || next.paragraphSpacingPx === 12)
+        next.paragraphSpacingPx = defaultSettings.paragraphSpacingPx;
       if (
         next.paragraphHighlightOpacity == null ||
         next.paragraphHighlightOpacity === 0.12 ||

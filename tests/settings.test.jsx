@@ -103,6 +103,7 @@ describe("Settings persistence", () => {
         textOpacity: 0.8,
         inactiveTextOpacity: 1,
         paragraphHighlightOpacity: 0.12,
+        paragraphSpacingPx: 12,
         sidePaddingVw: 10,
       })
     );
@@ -123,6 +124,7 @@ describe("Settings persistence", () => {
     expect(saved.textOpacity).toBe(1);
     expect(saved.inactiveTextOpacity).toBe(0.36);
     expect(saved.paragraphHighlightOpacity).toBe(0.04);
+    expect(saved.paragraphSpacingPx).toBe(4);
     expect(saved.sidePaddingVw).toBe(20);
   });
 
