@@ -23,7 +23,7 @@ describe("Settings persistence", () => {
       expect(saved).not.toBeNull();
     });
     const settings = JSON.parse(localStorage.getItem(SETTINGS_KEY));
-    expect(settings).toHaveProperty("settingsProfileVersion", 3);
+    expect(settings).toHaveProperty("settingsProfileVersion", 4);
     expect(settings).toHaveProperty("fontSize", 36);
     expect(settings).toHaveProperty("lineHeight", 1.55);
     expect(settings).toHaveProperty("bgColor");
@@ -36,8 +36,10 @@ describe("Settings persistence", () => {
     expect(settings).toHaveProperty("aimContrast", 1.1);
     expect(settings).toHaveProperty("aimScale", 1);
     expect(settings).toHaveProperty("textOpacity", 1);
-    expect(settings).toHaveProperty("inactiveTextOpacity", 0.36);
-    expect(settings).toHaveProperty("paragraphHighlightOpacity", 0.04);
+    expect(settings).toHaveProperty("inactiveTextOpacity", 0.68);
+    expect(settings).toHaveProperty("paragraphHighlightOpacity", 0);
+    expect(settings).toHaveProperty("showReadAheadCue", true);
+    expect(settings).toHaveProperty("readAheadWords", 2);
   });
 
   it("restores custom settings from localStorage", async () => {
@@ -112,7 +114,7 @@ describe("Settings persistence", () => {
 
     await waitFor(() => {
       const saved = JSON.parse(localStorage.getItem(SETTINGS_KEY));
-      expect(saved.settingsProfileVersion).toBe(3);
+      expect(saved.settingsProfileVersion).toBe(4);
       expect(saved.fontSize).toBe(36);
     });
 
@@ -122,10 +124,12 @@ describe("Settings persistence", () => {
     expect(saved.highlightColor).toBe("#ffd84d");
     expect(saved.centerPaddingVh).toBe(48);
     expect(saved.textOpacity).toBe(1);
-    expect(saved.inactiveTextOpacity).toBe(0.36);
-    expect(saved.paragraphHighlightOpacity).toBe(0.04);
+    expect(saved.inactiveTextOpacity).toBe(0.68);
+    expect(saved.paragraphHighlightOpacity).toBe(0);
     expect(saved.paragraphSpacingPx).toBe(4);
     expect(saved.sidePaddingVw).toBe(20);
+    expect(saved.showReadAheadCue).toBe(true);
+    expect(saved.readAheadWords).toBe(2);
   });
 
   it("includes script text in saved settings", async () => {
@@ -146,6 +150,8 @@ describe("Settings persistence", () => {
     expect(screen.getByPlaceholderText("Profile name")).toBeInTheDocument();
     expect(screen.getByText("Save New")).toBeInTheDocument();
     expect(screen.getByText("Update")).toBeInTheDocument();
+    expect(screen.getByText("Read-ahead cue")).toBeInTheDocument();
+    expect(screen.getByText("Cue lead: 2 words")).toBeInTheDocument();
   });
 
   it("saves profile settings without copying script text", async () => {

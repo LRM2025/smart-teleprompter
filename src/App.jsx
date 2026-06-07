@@ -204,10 +204,12 @@ Happy recording!`);
   const [aimContrast, setAimContrast] = useState(1.1);
   const [aimScale, setAimScale] = useState(1);
   const [showHighlight, setShowHighlight] = useState(true);
+  const [showReadAheadCue, setShowReadAheadCue] = useState(true);
+  const [readAheadWords, setReadAheadWords] = useState(2);
   const [aimOffsetX, setAimOffsetX] = useState(0);
   const [aimOffsetY, setAimOffsetY] = useState(0);
   const [textOpacity, setTextOpacity] = useState(1);
-  const [inactiveTextOpacity, setInactiveTextOpacity] = useState(0.36);
+  const [inactiveTextOpacity, setInactiveTextOpacity] = useState(0.68);
   const [aimOpacity, setAimOpacity] = useState(1);
   const [uiOpacity, setUiOpacity] = useState(0.9);
   const [sidePaddingVw, setSidePaddingVw] = useState(20);
@@ -254,7 +256,7 @@ Happy recording!`);
     { code: "sv-SE", label: "🇸🇪 Svenska" },
   ];
   const [paragraphHighlightOpacity, setParagraphHighlightOpacity] =
-    useState(0.04);
+    useState(0);
   const [linesWords, setLinesWords] = useState([]);
   const [lineStartIndex, setLineStartIndex] = useState([]);
   const [showEditor, setShowEditor] = useState(false);
@@ -556,7 +558,7 @@ Happy recording!`);
   };
 
   const SETTINGS_KEY = "tp_settings_v1";
-  const SETTINGS_PROFILE_VERSION = 3;
+  const SETTINGS_PROFILE_VERSION = 4;
   const defaultSettings = {
     settingsProfileVersion: SETTINGS_PROFILE_VERSION,
     fontSize: 36,
@@ -571,6 +573,8 @@ Happy recording!`);
     centerPaddingVh: 48,
     showAim: true,
     showListeningStatus: false,
+    showReadAheadCue: true,
+    readAheadWords: 2,
     aimMarkerType: "square",
     aimColor: "#8fb8ff",
     aimBrightness: 1,
@@ -579,14 +583,14 @@ Happy recording!`);
     aimOffsetX: 0,
     aimOffsetY: 0,
     textOpacity: 1,
-    inactiveTextOpacity: 0.36,
+    inactiveTextOpacity: 0.68,
     aimOpacity: 1,
     uiOpacity: 0.9,
     renderMarkdown: false,
     paragraphSpacingPx: 4,
     sidePaddingVw: 20,
     textAlignStyle: "left",
-    paragraphHighlightOpacity: 0.04,
+    paragraphHighlightOpacity: 0,
     language: "en-US",
     mirrorX: false,
   };
@@ -609,7 +613,11 @@ Happy recording!`);
         next.centerPaddingVh = defaultSettings.centerPaddingVh;
       if (next.textOpacity == null || next.textOpacity === 0.8)
         next.textOpacity = defaultSettings.textOpacity;
-      if (next.inactiveTextOpacity == null || next.inactiveTextOpacity === 1)
+      if (
+        next.inactiveTextOpacity == null ||
+        next.inactiveTextOpacity === 1 ||
+        next.inactiveTextOpacity === 0.36
+      )
         next.inactiveTextOpacity = defaultSettings.inactiveTextOpacity;
       if (next.sidePaddingVw == null || next.sidePaddingVw === 10)
         next.sidePaddingVw = defaultSettings.sidePaddingVw;
@@ -617,11 +625,16 @@ Happy recording!`);
         next.paragraphSpacingPx = defaultSettings.paragraphSpacingPx;
       if (
         next.paragraphHighlightOpacity == null ||
+        next.paragraphHighlightOpacity === 0.04 ||
         next.paragraphHighlightOpacity === 0.12 ||
         next.paragraphHighlightOpacity === 0.2
       )
         next.paragraphHighlightOpacity =
           defaultSettings.paragraphHighlightOpacity;
+      if (next.showReadAheadCue == null)
+        next.showReadAheadCue = defaultSettings.showReadAheadCue;
+      if (next.readAheadWords == null)
+        next.readAheadWords = defaultSettings.readAheadWords;
     }
     next.settingsProfileVersion = SETTINGS_PROFILE_VERSION;
     return next;
@@ -643,6 +656,8 @@ Happy recording!`);
     if (s.showAim != null) setShowAim(s.showAim);
     if (s.showListeningStatus != null)
       setShowListeningStatus(!!s.showListeningStatus);
+    if (s.showReadAheadCue != null) setShowReadAheadCue(!!s.showReadAheadCue);
+    if (s.readAheadWords != null) setReadAheadWords(s.readAheadWords);
     if (s.aimMarkerType) setAimMarkerType(s.aimMarkerType);
     if (s.aimColor) setAimColor(s.aimColor);
     if (s.aimBrightness != null) setAimBrightness(s.aimBrightness);
@@ -681,6 +696,8 @@ Happy recording!`);
     centerPaddingVh,
     showAim,
     showListeningStatus,
+    showReadAheadCue,
+    readAheadWords,
     aimMarkerType,
     aimColor,
     aimBrightness,
@@ -714,6 +731,8 @@ Happy recording!`);
     setCenterPaddingVh(defaultSettings.centerPaddingVh);
     setShowAim(defaultSettings.showAim);
     setShowListeningStatus(defaultSettings.showListeningStatus);
+    setShowReadAheadCue(defaultSettings.showReadAheadCue);
+    setReadAheadWords(defaultSettings.readAheadWords);
     setAimMarkerType(defaultSettings.aimMarkerType);
     setAimColor(defaultSettings.aimColor);
     setAimBrightness(defaultSettings.aimBrightness);
@@ -998,6 +1017,8 @@ Happy recording!`);
       centerPaddingVh,
       showAim,
       showListeningStatus,
+      showReadAheadCue,
+      readAheadWords,
       aimMarkerType,
       aimColor,
       aimBrightness,
@@ -1035,6 +1056,8 @@ Happy recording!`);
     centerPaddingVh,
     showAim,
     showListeningStatus,
+    showReadAheadCue,
+    readAheadWords,
     aimMarkerType,
     aimColor,
     aimBrightness,
@@ -1089,6 +1112,7 @@ Happy recording!`);
 
   const FileButton = ({ onFile }) => {
     const inputRef = useRef(null);
+
     return (
       <IconButton uiOpacity={uiOpacity}
         onClick={() => inputRef.current && inputRef.current.click()}
@@ -1307,6 +1331,19 @@ Happy recording!`);
     return wordRect.top - anchorY;
   };
 
+  const getReadAheadCueIndex = (baseIndex) => {
+    const totalWords =
+      wordsRef.current.length || normalizedWordsRef.current.length || 0;
+    if (totalWords <= 0) return -1;
+    if (baseIndex < 0) return showReadAheadCue ? 0 : -1;
+    if (!showReadAheadCue) return baseIndex;
+    const offset = Math.max(
+      0,
+      Math.min(8, Math.round(Number(readAheadWords) || 0))
+    );
+    return Math.min(totalWords - 1, baseIndex + offset);
+  };
+
   useEffect(() => {
     const loop = (ts) => {
       if (!isPlaying || isListening) {
@@ -1330,9 +1367,13 @@ Happy recording!`);
         }
         setCurrentWordIndex(next);
         // cancel ongoing scroll and start a fresh center to word
+        const cueNext = getReadAheadCueIndex(next);
         scrollAnimTokenRef.current++;
         // Use our smooth scroller; it writes to container scrollTop
-        centerOnWordSmooth(next, Math.max(600, stepMs - 50));
+        centerOnWordSmooth(
+          cueNext >= 0 ? cueNext : next,
+          Math.max(600, stepMs - 50)
+        );
         autoLastTsRef.current = ts;
 
         // Detect stagnation: if scrollTop hasn't changed for several steps, force a small nudge
@@ -1374,15 +1415,17 @@ Happy recording!`);
         autoLastTsRef.current = 0;
       }
     };
-  }, [isPlaying, isListening, scrollSpeed]);
+  }, [isPlaying, isListening, scrollSpeed, showReadAheadCue, readAheadWords]);
 
   useEffect(() => {
     const active = isListening || isPlaying;
     if (!active && !followEnabled) return;
-    if (currentWordIndex < 0 || !textContainerRef.current) return;
+    if (!textContainerRef.current) return;
+    const cueWordIndex = getReadAheadCueIndex(currentWordIndex);
+    if (cueWordIndex < 0) return;
 
-    const logicalLineIdx = getLineIdxForWord(currentWordIndex);
-    const visualLineIdx = getVisualLineIdxForWord(currentWordIndex);
+    const logicalLineIdx = getLineIdxForWord(cueWordIndex);
+    const visualLineIdx = getVisualLineIdxForWord(cueWordIndex);
 
     const logicalChanged = logicalLineIdx !== prevLineIdxRef.current;
     const visualChanged = visualLineIdx !== prevVisualLineIdxRef.current;
@@ -1392,13 +1435,15 @@ Happy recording!`);
 
     if (logicalChanged || visualChanged) {
       scrollAnimTokenRef.current++;
-      centerOnWordSmooth(currentWordIndex, isListening ? 420 : 900);
+      centerOnWordSmooth(cueWordIndex, isListening ? 220 : 650);
     }
   }, [
     currentWordIndex,
     followEnabled,
     isListening,
     isPlaying,
+    showReadAheadCue,
+    readAheadWords,
     fontSize,
     lineHeight,
     centerPaddingVh,
@@ -1416,13 +1461,13 @@ Happy recording!`);
     const tick = () => {
       const active = isListening || isPlaying;
       if (active && !programmaticScrollRef.current) {
-        const idx = currentWordIndexRef.current;
+        const idx = getReadAheadCueIndex(currentWordIndexRef.current);
         if (idx >= 0) {
           const approxLinePx = Math.max(1, fontSize * lineHeight * 1.0);
           const delta = Math.abs(getWordAnchorDelta(idx));
           if (delta > approxLinePx * 0.9) {
             scrollAnimTokenRef.current++;
-            centerOnWordSmooth(idx, isListening ? 420 : 650);
+            centerOnWordSmooth(idx, isListening ? 220 : 650);
           }
         }
       }
@@ -1450,7 +1495,15 @@ Happy recording!`);
     return () => {
       if (rafId) cancelAnimationFrame(rafId);
     };
-  }, [isListening, isPlaying, fontSize, lineHeight, centerPaddingVh]);
+  }, [
+    isListening,
+    isPlaying,
+    showReadAheadCue,
+    readAheadWords,
+    fontSize,
+    lineHeight,
+    centerPaddingVh,
+  ]);
 
   useEffect(() => {
     const el = textContainerRef.current;
@@ -1684,8 +1737,9 @@ Happy recording!`);
           prevVisualLineIdxRef.current = -1;
           const currentIdx =
             currentWordIndexRef.current >= 0 ? currentWordIndexRef.current : 0;
+          const cueIdx = getReadAheadCueIndex(currentIdx);
           scrollAnimTokenRef.current++;
-          centerOnWordSmooth(currentIdx);
+          centerOnWordSmooth(cueIdx >= 0 ? cueIdx : currentIdx);
         }, 50);
       } catch (e) {
         console.error("Error starting recognition:", e);
@@ -1708,8 +1762,9 @@ Happy recording!`);
         setTimeout(() => {
           prevLineIdxRef.current = -1; // force first-centering
           prevVisualLineIdxRef.current = -1;
+          const cueIdx = getReadAheadCueIndex(0);
           scrollAnimTokenRef.current++;
-          centerOnWordSmooth(0);
+          centerOnWordSmooth(cueIdx >= 0 ? cueIdx : 0);
           // init stagnation trackers
           const el = textContainerRef.current;
           if (el) lastScrollTopRef.current = el.scrollTop;
@@ -1718,8 +1773,11 @@ Happy recording!`);
       } else {
         setTimeout(() => {
           prevVisualLineIdxRef.current = -1;
+          const cueIdx = getReadAheadCueIndex(currentWordIndexRef.current);
           scrollAnimTokenRef.current++;
-          centerOnWordSmooth(currentWordIndexRef.current);
+          centerOnWordSmooth(
+            cueIdx >= 0 ? cueIdx : currentWordIndexRef.current
+          );
           const el = textContainerRef.current;
           if (el) lastScrollTopRef.current = el.scrollTop;
           stagnantStepsRef.current = 0;
@@ -2102,6 +2160,8 @@ Happy recording!`);
       </svg>
     );
   };
+
+  const visualCueWordIndex = getReadAheadCueIndex(currentWordIndex);
 
   return (
     <main
@@ -3487,6 +3547,101 @@ Happy recording!`);
                     marginBottom: "8px",
                   }}
                 >
+                  Read-ahead cue
+                </label>
+                <button
+                  onClick={() => setShowReadAheadCue((value) => !value)}
+                  style={{
+                    width: "100%",
+                    padding: "10px 12px",
+                    borderRadius: "8px",
+                    border: "1px solid #555",
+                    background: showReadAheadCue ? "#2e7d32" : "#1f1f1f",
+                    color: "white",
+                    cursor: "pointer",
+                    fontWeight: "bold",
+                    marginBottom: "8px",
+                  }}
+                >
+                  {showReadAheadCue
+                    ? "On - show the next cue word"
+                    : "Off - highlight spoken word only"}
+                </button>
+                <div
+                  style={{ color: "#aaa", fontSize: "12px", marginBottom: "8px" }}
+                >
+                  Recommended teleprompter mode: keep the visual cue slightly
+                  ahead of the recognized word so your eyes read forward instead
+                  of chasing the last spoken word.
+                </div>
+              </div>
+
+              <div style={{ marginBottom: "20px" }}>
+                <label
+                  style={{
+                    color: "white",
+                    display: "block",
+                    marginBottom: "8px",
+                  }}
+                >
+                  Cue lead: {readAheadWords}{" "}
+                  {readAheadWords === 1 ? "word" : "words"}
+                </label>
+                <div
+                  className="custom-slider"
+                  onClick={(e) => {
+                    if (e.target.classList.contains("custom-slider-thumb"))
+                      return;
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    const x = e.clientX - rect.left;
+                    const percentage = x / rect.width;
+                    const newValue = Math.round(percentage * 8);
+                    setReadAheadWords(Math.max(0, Math.min(8, newValue)));
+                  }}
+                >
+                  <div className="custom-slider-track" />
+                  <div
+                    className="custom-slider-thumb"
+                    style={{
+                      left: `calc(${(readAheadWords / 8) * 100}% - 8px)`,
+                    }}
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      const startX = e.clientX;
+                      const startValue = readAheadWords;
+                      const rect =
+                        e.currentTarget.parentElement.getBoundingClientRect();
+
+                      const handleMouseMove = (moveEvent) => {
+                        const deltaX = moveEvent.clientX - startX;
+                        const deltaPercentage = deltaX / rect.width;
+                        const newValue = Math.round(startValue + deltaPercentage * 8);
+                        setReadAheadWords(Math.max(0, Math.min(8, newValue)));
+                      };
+
+                      const handleMouseUp = () => {
+                        document.removeEventListener(
+                          "mousemove",
+                          handleMouseMove
+                        );
+                        document.removeEventListener("mouseup", handleMouseUp);
+                      };
+
+                      document.addEventListener("mousemove", handleMouseMove);
+                      document.addEventListener("mouseup", handleMouseUp);
+                    }}
+                  />
+                </div>
+              </div>
+
+              <div style={{ marginBottom: "20px" }}>
+                <label
+                  style={{
+                    color: "white",
+                    display: "block",
+                    marginBottom: "8px",
+                  }}
+                >
                   Text opacity: {Math.round(textOpacity * 100)}%
                 </label>
                 <div
@@ -4329,7 +4484,7 @@ Happy recording!`);
             const lineStart = lineStartIndex[lineIdx] || 0;
             const lineEnd = lineStart + lineWordsLocal.length - 1;
             const isCurrentLine =
-              currentWordIndex >= lineStart && currentWordIndex <= lineEnd;
+              visualCueWordIndex >= lineStart && visualCueWordIndex <= lineEnd;
             return (
               <div
                 key={lineIdx}
@@ -4341,30 +4496,45 @@ Happy recording!`);
                   backgroundColor: isCurrentLine
                     ? `rgba(255, 235, 59, ${paragraphHighlightOpacity})`
                     : "transparent",
-                  outline: isCurrentLine
+                  outline: isCurrentLine && paragraphHighlightOpacity > 0
                     ? `1px dashed ${highlightColor}33`
                     : "none",
                 }}
               >
                 {lineWordsLocal.map((word, i) => {
                   const index = lineStart + i;
-                  const isCurrent = index === currentWordIndex;
+                  const isCue = index === visualCueWordIndex;
+                  const isSpoken =
+                    currentWordIndex >= 0 &&
+                    index === currentWordIndex &&
+                    index !== visualCueWordIndex;
                   return (
                     <span
                       key={index}
                       id={`word-${index}`}
                       style={{
                         backgroundColor:
-                          isCurrent && showHighlight
+                          isCue && showHighlight
                             ? highlightColor
+                            : isSpoken && showHighlight
+                            ? `${highlightColor}22`
                             : "transparent",
-                        color: isCurrent && showHighlight ? "#000" : textColor,
-                        opacity: isCurrent ? 1 : inactiveTextOpacity,
+                        color: isCue && showHighlight ? "#050505" : textColor,
+                        opacity: isCue
+                          ? 1
+                          : isSpoken
+                          ? Math.max(inactiveTextOpacity, 0.82)
+                          : inactiveTextOpacity,
                         borderRadius: "2px",
+                        boxShadow:
+                          isCue && showHighlight
+                            ? "0 0 0 1px rgba(0,0,0,0.25)"
+                            : isSpoken && showHighlight
+                            ? `inset 0 -0.12em 0 ${highlightColor}66`
+                            : "none",
                         transition:
-                          "background-color 0.12s ease, color 0.12s ease, opacity 0.12s ease",
-                        fontWeight:
-                          isCurrent && showHighlight ? "normal" : "normal",
+                          "background-color 0.08s ease, color 0.08s ease, opacity 0.08s ease, box-shadow 0.08s ease",
+                        fontWeight: isCue && showHighlight ? 700 : "normal",
                         cursor: "pointer",
                       }}
                       onClick={() => setCurrentWordIndex(index)}
