@@ -57,6 +57,22 @@ describe("speech matcher", () => {
     ).toBe(-1);
   });
 
+  it("respects the forward window for cumulative interim phrases", () => {
+    const normalizedWords = normalizeScript(
+      "one two three four five six seven eight nine ten eleven twelve thirteen fourteen"
+    );
+    const tokens = normalizeTranscript("ten eleven twelve");
+
+    expect(
+      findSequentialInterimIndex({
+        tokens,
+        normalizedWords,
+        startIndex: 1,
+        maxWindow: 6,
+      })
+    ).toBe(-1);
+  });
+
   it("matches the immediate next repeated word without searching ahead", () => {
     const normalizedWords = normalizeScript(
       "Welcome to Smart Teleprompter the free open source Teleprompter app"

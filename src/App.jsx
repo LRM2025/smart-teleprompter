@@ -205,7 +205,7 @@ Happy recording!`);
   const [aimContrast, setAimContrast] = useState(1.1);
   const [aimScale, setAimScale] = useState(1);
   const [showHighlight, setShowHighlight] = useState(true);
-  const [smoothLiveGuide, setSmoothLiveGuide] = useState(true);
+  const [smoothLiveGuide, setSmoothLiveGuide] = useState(false);
   const [showReadAheadCue, setShowReadAheadCue] = useState(true);
   const [readAheadWords, setReadAheadWords] = useState(1);
   const [aimOffsetX, setAimOffsetX] = useState(0);
@@ -432,16 +432,8 @@ Happy recording!`);
           normalizedWords: normalizedWordsRef.current,
           startIndex,
           maxSequence: 5,
-          maxWindow: Math.min(Math.max(lookaheadWindow, 3), 12),
+          maxWindow: Math.min(Math.max(lookaheadWindow, 3), 8),
         });
-      }
-
-      if (nextIndex === -1) {
-        const { index } = tryAdvanceByTokens(tokens, startIndex, {
-          maxWindow: Math.min(Math.max(lookaheadWindow, 3), 12),
-          maxSoftSkip: 1,
-        });
-        nextIndex = index;
       }
 
       if (nextIndex === -1 && isFinal) {
@@ -453,19 +445,10 @@ Happy recording!`);
           2,
           true
         );
-        if (nextIndex === -1)
-          nextIndex = findNextInLine(
-            tokens,
-            startIndex,
-            currentLine,
-            undefined,
-            2,
-            true
-          );
         if (nextIndex === -1) {
           const { index } = tryAdvanceByTokens(tokens, startIndex, {
-            maxWindow: lookaheadWindow,
-            maxSoftSkip: 2,
+            maxWindow: Math.min(Math.max(lookaheadWindow, 3), 6),
+            maxSoftSkip: 1,
           });
           nextIndex = index;
         }
@@ -581,7 +564,7 @@ Happy recording!`);
   const GUIDE_MAX_PREDICTIVE_ADVANCE_WORDS = 1;
 
   const SETTINGS_KEY = "tp_settings_v1";
-  const SETTINGS_PROFILE_VERSION = 6;
+  const SETTINGS_PROFILE_VERSION = 7;
   const defaultSettings = {
     settingsProfileVersion: SETTINGS_PROFILE_VERSION,
     fontSize: 36,
@@ -596,7 +579,7 @@ Happy recording!`);
     centerPaddingVh: 48,
     showAim: true,
     showListeningStatus: false,
-    smoothLiveGuide: true,
+    smoothLiveGuide: false,
     showReadAheadCue: true,
     readAheadWords: 1,
     aimMarkerType: "square",
@@ -657,7 +640,7 @@ Happy recording!`);
           defaultSettings.paragraphHighlightOpacity;
       if (next.showReadAheadCue == null)
         next.showReadAheadCue = defaultSettings.showReadAheadCue;
-      if (next.smoothLiveGuide == null)
+      if (next.smoothLiveGuide == null || next.smoothLiveGuide === true)
         next.smoothLiveGuide = defaultSettings.smoothLiveGuide;
       if (next.readAheadWords == null || next.readAheadWords === 2)
         next.readAheadWords = defaultSettings.readAheadWords;
@@ -3245,8 +3228,8 @@ Happy recording!`);
                   }}
                 >
                   {smoothLiveGuide
-                    ? "On - guide keeps moving while you speak"
-                    : "Off - original recognized-word tracking"}
+                    ? "On - experimental predictive guide"
+                    : "Off - exact recognized-word tracking"}
                 </button>
                 <div
                   style={{
@@ -3775,9 +3758,9 @@ Happy recording!`);
                 <div
                   style={{ color: "#aaa", fontSize: "12px", marginBottom: "8px" }}
                 >
-                  Recommended teleprompter mode: keep the current recognized
-                  word as the main highlight, and gently brighten the next words
-                  so your eyes can read forward without a false prediction.
+                  Recommended teleprompter mode: exact word tracking plus the
+                  center aim marker. Predictive guide can feel faster, but it
+                  may jump when repeated phrases appear.
                 </div>
               </div>
 

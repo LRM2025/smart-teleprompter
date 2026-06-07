@@ -23,7 +23,7 @@ describe("Settings persistence", () => {
       expect(saved).not.toBeNull();
     });
     const settings = JSON.parse(localStorage.getItem(SETTINGS_KEY));
-    expect(settings).toHaveProperty("settingsProfileVersion", 6);
+    expect(settings).toHaveProperty("settingsProfileVersion", 7);
     expect(settings).toHaveProperty("fontSize", 36);
     expect(settings).toHaveProperty("lineHeight", 1.55);
     expect(settings).toHaveProperty("bgColor");
@@ -38,7 +38,7 @@ describe("Settings persistence", () => {
     expect(settings).toHaveProperty("textOpacity", 1);
     expect(settings).toHaveProperty("inactiveTextOpacity", 0.68);
     expect(settings).toHaveProperty("paragraphHighlightOpacity", 0);
-    expect(settings).toHaveProperty("smoothLiveGuide", true);
+    expect(settings).toHaveProperty("smoothLiveGuide", false);
     expect(settings).toHaveProperty("showReadAheadCue", true);
     expect(settings).toHaveProperty("readAheadWords", 1);
   });
@@ -116,7 +116,7 @@ describe("Settings persistence", () => {
 
     await waitFor(() => {
       const saved = JSON.parse(localStorage.getItem(SETTINGS_KEY));
-      expect(saved.settingsProfileVersion).toBe(6);
+      expect(saved.settingsProfileVersion).toBe(7);
       expect(saved.fontSize).toBe(36);
     });
 
@@ -130,7 +130,7 @@ describe("Settings persistence", () => {
     expect(saved.paragraphHighlightOpacity).toBe(0);
     expect(saved.paragraphSpacingPx).toBe(4);
     expect(saved.sidePaddingVw).toBe(20);
-    expect(saved.smoothLiveGuide).toBe(true);
+    expect(saved.smoothLiveGuide).toBe(false);
     expect(saved.showReadAheadCue).toBe(true);
     expect(saved.readAheadWords).toBe(1);
   });
