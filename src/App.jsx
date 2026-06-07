@@ -3238,9 +3238,9 @@ Happy recording!`);
                     marginBottom: "8px",
                   }}
                 >
-                  Uses speech recognition to sync position, then keeps the
-                  reading guide moving with your estimated speaking pace instead
-                  of waiting for every delayed browser result.
+                  {smoothLiveGuide
+                    ? "Experimental: estimates your speaking pace and moves the guide ahead between browser speech results. Turn this off if repeated phrases jump."
+                    : "Recommended: tracks the exact recognized word and uses the center aim marker as the stable read point. This avoids false jumps on repeated phrases."}
                 </div>
               </div>
 
