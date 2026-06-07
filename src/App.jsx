@@ -1,4 +1,11 @@
 import { useState, useEffect, useRef } from "react";
+import {
+  findSequentialInterimIndex,
+  normalizeTranscript,
+  normalizeWord,
+  tokensEqual,
+  tokensSoftMatch,
+} from "./speechMatcher";
 
 function Icon({ name }) {
   return (
@@ -369,16 +376,11 @@ Happy recording!`);
       const transcript =
         chosen && chosen[0] && chosen[0].transcript ? chosen[0].transcript : "";
 
-      // Split σε tokens ΑΜΑ υπάρχει τουλάχιστον μία λέξη
-      const tokens = transcript.split(/\s+/).map(normalizeWord).filter(Boolean);
+      // Split into normalized tokens when at least one word exists.
+      const tokens = normalizeTranscript(transcript);
       if (tokens.length === 0) return;
 
       const isFinal = !!(chosen && chosen.isFinal);
-
-      // Use the latest interim context, not only the last word. This keeps
-      // highlighting responsive while reducing false jumps on common words.
-      const tokensToUse =
-        !isFinal && tokens.length > 3 ? tokens.slice(-3) : tokens;
 
       // mic activity indicator
       setIsSpeaking(true);
@@ -392,31 +394,40 @@ Happy recording!`);
       const startIndex = Math.max(currentWordIndexRef.current + 1, 0);
       const currentLine = getLineIdxForWord(currentWordIndexRef.current);
 
-      // Χρησιμοποίησε τα tokens που έχουμε υπολογίσει
-      let nextIndex = findNextInLine(
-        tokensToUse,
+      let nextIndex = findSequentialInterimIndex({
+        tokens,
+        normalizedWords: normalizedWordsRef.current,
         startIndex,
-        currentLine,
-        6,
-        2, // Always allow soft match για πιο aggressive matching
-        true
-      );
-      if (nextIndex === -1)
+        maxSequence: 5,
+      });
+
+      if (nextIndex === -1 && isFinal) {
         nextIndex = findNextInLine(
-          tokensToUse,
+          tokens,
           startIndex,
           currentLine,
-          undefined,
+          6,
           2,
-          true // Always allow soft match
+          true
         );
-      if (nextIndex === -1) {
-        const { index } = tryAdvanceByTokens(tokensToUse, startIndex, {
-          maxWindow: Math.max(lookaheadWindow, 14),
-          maxSoftSkip: 3,
-        });
-        nextIndex = index;
+        if (nextIndex === -1)
+          nextIndex = findNextInLine(
+            tokens,
+            startIndex,
+            currentLine,
+            undefined,
+            2,
+            true
+          );
+        if (nextIndex === -1) {
+          const { index } = tryAdvanceByTokens(tokens, startIndex, {
+            maxWindow: lookaheadWindow,
+            maxSoftSkip: 2,
+          });
+          nextIndex = index;
+        }
       }
+
       if (nextIndex !== -1) setCurrentWordIndex(nextIndex);
     };
 
@@ -868,31 +879,6 @@ Happy recording!`);
         />
       </IconButton>
     );
-  };
-
-  const tokensEqual = (a, b) => a && b && a === b;
-  const tokensSoftMatch = (target, token) => {
-    if (!target || !token) return false;
-    if (target === token) return true;
-    if (
-      token.length >= 3 &&
-      (target.startsWith(token) || token.startsWith(target))
-    )
-      return true;
-    if (token.length >= 4 && (target.includes(token) || token.includes(target)))
-      return true;
-    return false;
-  };
-
-  const normalizeWord = (input) => {
-    if (!input) return "";
-    return input
-      .toLowerCase()
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .replace(/ς/g, "σ")
-      .replace(/[^a-zA-Zα-ω0-9]+/g, "")
-      .trim();
   };
 
   useEffect(() => {
