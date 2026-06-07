@@ -63,3 +63,40 @@ export function findSequentialInterimIndex({
 
   return -1;
 }
+
+export function findInitialSpeechIndex({
+  tokens,
+  normalizedWords,
+  startIndex = 0,
+  maxWindow = 80,
+  maxSequence = 5,
+}) {
+  const candidates = tokens.filter(Boolean).slice(-maxSequence);
+  if (!candidates.length || !normalizedWords.length) return -1;
+
+  const safeStart = Math.max(0, Math.min(startIndex, normalizedWords.length - 1));
+  const windowEnd = Math.min(normalizedWords.length, safeStart + maxWindow);
+
+  // Prefer exact phrase matches. This lets users start in the middle of a
+  // script without allowing every later repeated single word to win.
+  for (let n = Math.min(candidates.length, maxSequence); n >= 2; n--) {
+    const seq = candidates.slice(-n);
+    for (let i = safeStart; i <= windowEnd - n; i++) {
+      let ok = true;
+      for (let k = 0; k < n; k++) {
+        if (!tokensEqual(normalizedWords[i + k], seq[k])) {
+          ok = false;
+          break;
+        }
+      }
+      if (ok) return i + n - 1;
+    }
+  }
+
+  const latest = candidates[candidates.length - 1];
+  for (let i = safeStart; i < windowEnd; i++) {
+    if (tokensEqual(normalizedWords[i], latest)) return i;
+  }
+
+  return -1;
+}

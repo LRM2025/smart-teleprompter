@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  findInitialSpeechIndex,
   findSequentialInterimIndex,
   normalizeTranscript,
   normalizeWord,
@@ -51,5 +52,35 @@ describe("speech matcher", () => {
         startIndex: 3,
       })
     ).toBe(3);
+  });
+
+  it("locks onto speech when the user starts in the middle of the script", () => {
+    const normalizedWords = normalizeScript(
+      "Let's talk about the moment a shared lead turns into a nightmare Aber wir sollten die Zielgruppe ansprechen"
+    );
+    const tokens = normalizeTranscript("Aber wir sollten");
+
+    expect(
+      findInitialSpeechIndex({
+        tokens,
+        normalizedWords,
+        startIndex: 0,
+      })
+    ).toBe(14);
+  });
+
+  it("uses earliest exact phrase during initial lock instead of a later repeated single word", () => {
+    const normalizedWords = normalizeScript(
+      "Teleprompter intro starts here later we mention Teleprompter again"
+    );
+    const tokens = normalizeTranscript("Teleprompter");
+
+    expect(
+      findInitialSpeechIndex({
+        tokens,
+        normalizedWords,
+        startIndex: 0,
+      })
+    ).toBe(0);
   });
 });

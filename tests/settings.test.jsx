@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { render, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import SmartTeleprompter from "../src/App";
 
 const SETTINGS_KEY = "tp_settings_v1";
@@ -9,6 +9,13 @@ describe("Settings persistence", () => {
     localStorage.clear();
   });
 
+  const openSettings = async () => {
+    fireEvent.click(screen.getByRole("button", { name: "Settings" }));
+    await waitFor(() => {
+      expect(screen.getByText("Profile Settings")).toBeInTheDocument();
+    });
+  };
+
   it("saves settings to localStorage after mount", async () => {
     render(<SmartTeleprompter />);
     await waitFor(() => {
@@ -16,16 +23,21 @@ describe("Settings persistence", () => {
       expect(saved).not.toBeNull();
     });
     const settings = JSON.parse(localStorage.getItem(SETTINGS_KEY));
-    expect(settings).toHaveProperty("fontSize");
+    expect(settings).toHaveProperty("settingsProfileVersion", 2);
+    expect(settings).toHaveProperty("fontSize", 36);
+    expect(settings).toHaveProperty("lineHeight", 1.55);
     expect(settings).toHaveProperty("bgColor");
     expect(settings).toHaveProperty("textColor");
+    expect(settings).toHaveProperty("highlightColor", "#ffd84d");
     expect(settings).toHaveProperty("showListeningStatus", false);
     expect(settings).toHaveProperty("aimMarkerType", "square");
     expect(settings).toHaveProperty("aimColor", "#8fb8ff");
     expect(settings).toHaveProperty("aimBrightness", 1);
     expect(settings).toHaveProperty("aimContrast", 1.1);
     expect(settings).toHaveProperty("aimScale", 1);
-    expect(settings).toHaveProperty("inactiveTextOpacity", 1);
+    expect(settings).toHaveProperty("textOpacity", 1);
+    expect(settings).toHaveProperty("inactiveTextOpacity", 0.36);
+    expect(settings).toHaveProperty("paragraphHighlightOpacity", 0.04);
   });
 
   it("restores custom settings from localStorage", async () => {
@@ -79,6 +91,41 @@ describe("Settings persistence", () => {
     expect(saved.inactiveTextOpacity).toBe(0.45);
   });
 
+  it("migrates old default focus settings to the recommended profile", async () => {
+    localStorage.setItem(
+      SETTINGS_KEY,
+      JSON.stringify({
+        fontSize: 32,
+        lineHeight: 1.5,
+        scrollSpeed: 88,
+        highlightColor: "#ffeb3b",
+        centerPaddingVh: 45,
+        textOpacity: 0.8,
+        inactiveTextOpacity: 1,
+        paragraphHighlightOpacity: 0.12,
+        sidePaddingVw: 10,
+      })
+    );
+
+    render(<SmartTeleprompter />);
+
+    await waitFor(() => {
+      const saved = JSON.parse(localStorage.getItem(SETTINGS_KEY));
+      expect(saved.settingsProfileVersion).toBe(2);
+      expect(saved.fontSize).toBe(36);
+    });
+
+    const saved = JSON.parse(localStorage.getItem(SETTINGS_KEY));
+    expect(saved.lineHeight).toBe(1.55);
+    expect(saved.scrollSpeed).toBe(94);
+    expect(saved.highlightColor).toBe("#ffd84d");
+    expect(saved.centerPaddingVh).toBe(48);
+    expect(saved.textOpacity).toBe(1);
+    expect(saved.inactiveTextOpacity).toBe(0.36);
+    expect(saved.paragraphHighlightOpacity).toBe(0.04);
+    expect(saved.sidePaddingVw).toBe(20);
+  });
+
   it("includes script text in saved settings", async () => {
     render(<SmartTeleprompter />);
     await waitFor(() => {
@@ -87,5 +134,29 @@ describe("Settings persistence", () => {
     });
     const settings = JSON.parse(localStorage.getItem(SETTINGS_KEY));
     expect(settings.text).toContain("Welcome to Smart Teleprompter");
+  });
+
+  it("renders profile settings controls inside settings", async () => {
+    render(<SmartTeleprompter />);
+    await openSettings();
+
+    expect(screen.getByText("Profile Settings")).toBeInTheDocument();
+    expect(screen.getByPlaceholderText("Profile name")).toBeInTheDocument();
+    expect(screen.getByText("Save New")).toBeInTheDocument();
+    expect(screen.getByText("Update")).toBeInTheDocument();
+  });
+
+  it("saves profile settings without copying script text", async () => {
+    render(<SmartTeleprompter />);
+    await openSettings();
+    fireEvent.click(screen.getByText("Save New"));
+
+    await waitFor(() => {
+      const raw = localStorage.getItem("tp_settings_profiles_v1");
+      expect(raw).not.toBeNull();
+      const profiles = JSON.parse(raw);
+      expect(profiles[0].settings).not.toHaveProperty("text");
+      expect(profiles[0].settings).toHaveProperty("inactiveTextOpacity");
+    });
   });
 });

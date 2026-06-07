@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import {
+  findInitialSpeechIndex,
   findSequentialInterimIndex,
   normalizeTranscript,
   normalizeWord,
@@ -176,13 +177,13 @@ This project is completely free and open source. If you find it useful, consider
 
 Happy recording!`);
 
-  const [fontSize, setFontSize] = useState(32);
+  const [fontSize, setFontSize] = useState(36);
   const [margin, setMargin] = useState(20);
-  const [lineHeight, setLineHeight] = useState(1.5);
-  const [scrollSpeed, setScrollSpeed] = useState(88);
+  const [lineHeight, setLineHeight] = useState(1.55);
+  const [scrollSpeed, setScrollSpeed] = useState(94);
   const [bgColor, setBgColor] = useState("#000000");
   const [textColor, setTextColor] = useState("#ffffff");
-  const [highlightColor, setHighlightColor] = useState("#ffeb3b");
+  const [highlightColor, setHighlightColor] = useState("#ffd84d");
 
   const [isListening, setIsListening] = useState(false);
   const [micNotice, setMicNotice] = useState("");
@@ -193,7 +194,7 @@ Happy recording!`);
   const [lookaheadWindow, setLookaheadWindow] = useState(10);
   const [userIsInteracting, setUserIsInteracting] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
-  const [centerPaddingVh, setCenterPaddingVh] = useState(45);
+  const [centerPaddingVh, setCenterPaddingVh] = useState(48);
   const [showCenterLine, setShowCenterLine] = useState(false);
   const [showAim, setShowAim] = useState(true);
   const [showListeningStatus, setShowListeningStatus] = useState(false);
@@ -205,11 +206,11 @@ Happy recording!`);
   const [showHighlight, setShowHighlight] = useState(true);
   const [aimOffsetX, setAimOffsetX] = useState(0);
   const [aimOffsetY, setAimOffsetY] = useState(0);
-  const [textOpacity, setTextOpacity] = useState(0.8);
-  const [inactiveTextOpacity, setInactiveTextOpacity] = useState(1);
+  const [textOpacity, setTextOpacity] = useState(1);
+  const [inactiveTextOpacity, setInactiveTextOpacity] = useState(0.36);
   const [aimOpacity, setAimOpacity] = useState(1);
   const [uiOpacity, setUiOpacity] = useState(0.9);
-  const [sidePaddingVw, setSidePaddingVw] = useState(10);
+  const [sidePaddingVw, setSidePaddingVw] = useState(20);
   const [textAlignStyle, setTextAlignStyle] = useState("left");
   const [mirrorX, setMirrorX] = useState(false);
   const [language, setLanguage] = useState("en-US");
@@ -253,7 +254,7 @@ Happy recording!`);
     { code: "sv-SE", label: "🇸🇪 Svenska" },
   ];
   const [paragraphHighlightOpacity, setParagraphHighlightOpacity] =
-    useState(0.12);
+    useState(0.04);
   const [linesWords, setLinesWords] = useState([]);
   const [lineStartIndex, setLineStartIndex] = useState([]);
   const [showEditor, setShowEditor] = useState(false);
@@ -269,7 +270,13 @@ Happy recording!`);
   const [scriptFormTouched, setScriptFormTouched] = useState(false);
   const [deleteScriptConfirm, setDeleteScriptConfirm] = useState(null);
   const [renderMarkdown, setRenderMarkdown] = useState(false);
-  const [paragraphSpacingPx, setParagraphSpacingPx] = useState(12);
+  const [paragraphSpacingPx, setParagraphSpacingPx] = useState(4);
+  const [settingsProfiles, setSettingsProfiles] = useState([]);
+  const [selectedSettingsProfileId, setSelectedSettingsProfileId] =
+    useState("");
+  const [settingsProfileName, setSettingsProfileName] =
+    useState("Creator Focus");
+  const [settingsProfileNotice, setSettingsProfileNotice] = useState("");
   const [extraBottomSpacePx, setExtraBottomSpacePx] = useState(0);
 
   const recognitionRef = useRef(null);
@@ -391,15 +398,29 @@ Happy recording!`);
       } catch (_) {}
       lastMicResultTsRef.current = performance.now();
 
-      const startIndex = Math.max(currentWordIndexRef.current + 1, 0);
-      const currentLine = getLineIdxForWord(currentWordIndexRef.current);
+      const currentIndex = currentWordIndexRef.current;
+      const startIndex = Math.max(currentIndex + 1, 0);
+      const currentLine = getLineIdxForWord(currentIndex);
 
-      let nextIndex = findSequentialInterimIndex({
-        tokens,
-        normalizedWords: normalizedWordsRef.current,
-        startIndex,
-        maxSequence: 5,
-      });
+      let nextIndex =
+        currentIndex < 0
+          ? findInitialSpeechIndex({
+              tokens,
+              normalizedWords: normalizedWordsRef.current,
+              startIndex: 0,
+              maxWindow: 100,
+              maxSequence: 5,
+            })
+          : -1;
+
+      if (nextIndex === -1) {
+        nextIndex = findSequentialInterimIndex({
+          tokens,
+          normalizedWords: normalizedWordsRef.current,
+          startIndex,
+          maxSequence: 5,
+        });
+      }
 
       if (nextIndex === -1 && isFinal) {
         nextIndex = findNextInLine(
@@ -535,17 +556,19 @@ Happy recording!`);
   };
 
   const SETTINGS_KEY = "tp_settings_v1";
+  const SETTINGS_PROFILE_VERSION = 2;
   const defaultSettings = {
-    fontSize: 32,
+    settingsProfileVersion: SETTINGS_PROFILE_VERSION,
+    fontSize: 36,
     margin: 20,
-    lineHeight: 1.5,
+    lineHeight: 1.55,
     scrollSpeed: 94,
     bgColor: "#000000",
     textColor: "#ffffff",
-    highlightColor: "#ffeb3b",
+    highlightColor: "#ffd84d",
     followEnabled: false,
     lookaheadWindow: 10,
-    centerPaddingVh: 45,
+    centerPaddingVh: 48,
     showAim: true,
     showListeningStatus: false,
     aimMarkerType: "square",
@@ -555,18 +578,126 @@ Happy recording!`);
     aimScale: 1,
     aimOffsetX: 0,
     aimOffsetY: 0,
-    textOpacity: 0.8,
-    inactiveTextOpacity: 1,
+    textOpacity: 1,
+    inactiveTextOpacity: 0.36,
     aimOpacity: 1,
     uiOpacity: 0.9,
     renderMarkdown: false,
     paragraphSpacingPx: 4,
     sidePaddingVw: 20,
     textAlignStyle: "left",
-    paragraphHighlightOpacity: 0.2,
+    paragraphHighlightOpacity: 0.04,
     language: "en-US",
     mirrorX: false,
   };
+
+  const migrateSettingsToFocusProfile = (settings) => {
+    const next = { ...settings };
+    const version = Number(next.settingsProfileVersion || 0);
+    if (version < SETTINGS_PROFILE_VERSION) {
+      // Preserve real custom values, but lift old defaults to the sharper
+      // teleprompter focus profile.
+      if (next.fontSize == null || next.fontSize === 32)
+        next.fontSize = defaultSettings.fontSize;
+      if (next.lineHeight == null || next.lineHeight === 1.5)
+        next.lineHeight = defaultSettings.lineHeight;
+      if (next.scrollSpeed == null || next.scrollSpeed === 88)
+        next.scrollSpeed = defaultSettings.scrollSpeed;
+      if (next.highlightColor == null || next.highlightColor === "#ffeb3b")
+        next.highlightColor = defaultSettings.highlightColor;
+      if (next.centerPaddingVh == null || next.centerPaddingVh === 45)
+        next.centerPaddingVh = defaultSettings.centerPaddingVh;
+      if (next.textOpacity == null || next.textOpacity === 0.8)
+        next.textOpacity = defaultSettings.textOpacity;
+      if (next.inactiveTextOpacity == null || next.inactiveTextOpacity === 1)
+        next.inactiveTextOpacity = defaultSettings.inactiveTextOpacity;
+      if (next.sidePaddingVw == null || next.sidePaddingVw === 10)
+        next.sidePaddingVw = defaultSettings.sidePaddingVw;
+      if (
+        next.paragraphHighlightOpacity == null ||
+        next.paragraphHighlightOpacity === 0.12 ||
+        next.paragraphHighlightOpacity === 0.2
+      )
+        next.paragraphHighlightOpacity =
+          defaultSettings.paragraphHighlightOpacity;
+    }
+    next.settingsProfileVersion = SETTINGS_PROFILE_VERSION;
+    return next;
+  };
+
+  const applySettingsObject = (settings, { includeText = false } = {}) => {
+    const s = migrateSettingsToFocusProfile(settings || {});
+    if (s.fontSize != null) setFontSize(s.fontSize);
+    if (s.margin != null) setMargin(s.margin);
+    if (s.lineHeight != null) setLineHeight(s.lineHeight);
+    if (s.scrollSpeed != null) setScrollSpeed(s.scrollSpeed);
+    if (s.bgColor) setBgColor(s.bgColor);
+    if (s.textColor) setTextColor(s.textColor);
+    if (s.highlightColor) setHighlightColor(s.highlightColor);
+    if (includeText && typeof s.text === "string") setText(s.text);
+    if (s.followEnabled != null) setFollowEnabled(s.followEnabled);
+    if (s.lookaheadWindow != null) setLookaheadWindow(s.lookaheadWindow);
+    if (s.centerPaddingVh != null) setCenterPaddingVh(s.centerPaddingVh);
+    if (s.showAim != null) setShowAim(s.showAim);
+    if (s.showListeningStatus != null)
+      setShowListeningStatus(!!s.showListeningStatus);
+    if (s.aimMarkerType) setAimMarkerType(s.aimMarkerType);
+    if (s.aimColor) setAimColor(s.aimColor);
+    if (s.aimBrightness != null) setAimBrightness(s.aimBrightness);
+    if (s.aimContrast != null) setAimContrast(s.aimContrast);
+    if (s.aimScale != null) setAimScale(s.aimScale);
+    if (s.aimOffsetX != null) setAimOffsetX(s.aimOffsetX);
+    if (s.aimOffsetY != null) setAimOffsetY(s.aimOffsetY);
+    if (s.textOpacity != null) setTextOpacity(s.textOpacity);
+    if (s.inactiveTextOpacity != null)
+      setInactiveTextOpacity(s.inactiveTextOpacity);
+    if (s.aimOpacity != null) setAimOpacity(s.aimOpacity);
+    if (s.uiOpacity != null) setUiOpacity(s.uiOpacity);
+    if (s.renderMarkdown != null) setRenderMarkdown(s.renderMarkdown);
+    if (s.paragraphSpacingPx != null)
+      setParagraphSpacingPx(s.paragraphSpacingPx);
+    if (s.sidePaddingVw != null) setSidePaddingVw(s.sidePaddingVw);
+    if (s.textAlignStyle) setTextAlignStyle(s.textAlignStyle);
+    if (s.paragraphHighlightOpacity != null)
+      setParagraphHighlightOpacity(s.paragraphHighlightOpacity);
+    if (s.language) setLanguage(s.language);
+    if (s.mirrorX != null) setMirrorX(!!s.mirrorX);
+    return s;
+  };
+
+  const buildSettingsProfileSnapshot = () => ({
+    settingsProfileVersion: SETTINGS_PROFILE_VERSION,
+    fontSize,
+    margin,
+    lineHeight,
+    scrollSpeed,
+    bgColor,
+    textColor,
+    highlightColor,
+    followEnabled,
+    lookaheadWindow,
+    centerPaddingVh,
+    showAim,
+    showListeningStatus,
+    aimMarkerType,
+    aimColor,
+    aimBrightness,
+    aimContrast,
+    aimScale,
+    aimOffsetX,
+    aimOffsetY,
+    textOpacity,
+    inactiveTextOpacity,
+    aimOpacity,
+    uiOpacity,
+    renderMarkdown,
+    paragraphSpacingPx,
+    sidePaddingVw,
+    textAlignStyle,
+    paragraphHighlightOpacity,
+    language,
+    mirrorX,
+  });
 
   const resetSettingsToDefault = () => {
     setFontSize(defaultSettings.fontSize);
@@ -606,7 +737,135 @@ Happy recording!`);
 
   // Script Library
   const SCRIPTS_KEY = "tp_scripts_v1";
+  const SETTINGS_PROFILES_KEY = "tp_settings_profiles_v1";
   const MAX_SCRIPTS = 50;
+  const MAX_SETTINGS_PROFILES = 20;
+
+  const flashSettingsProfileNotice = (message) => {
+    setSettingsProfileNotice(message);
+    setTimeout(() => {
+      setSettingsProfileNotice((current) =>
+        current === message ? "" : current
+      );
+    }, 3000);
+  };
+
+  const saveSettingsProfiles = (profiles) => {
+    const safeProfiles = profiles
+      .filter((profile) => profile && profile.id && profile.name)
+      .slice(0, MAX_SETTINGS_PROFILES);
+    setSettingsProfiles(safeProfiles);
+    try {
+      localStorage.setItem(
+        SETTINGS_PROFILES_KEY,
+        JSON.stringify(safeProfiles)
+      );
+    } catch (_) {}
+  };
+
+  const createSettingsProfileId = () => {
+    try {
+      if (crypto?.randomUUID) return `settings-profile-${crypto.randomUUID()}`;
+    } catch (_) {}
+    return `settings-profile-${Date.now()}-${Math.random()
+      .toString(36)
+      .slice(2)}`;
+  };
+
+  const saveSettingsProfileAsNew = () => {
+    const name = (settingsProfileName || "").trim() || "Creator Focus";
+    const profile = {
+      id: createSettingsProfileId(),
+      name,
+      settings: buildSettingsProfileSnapshot(),
+      updatedAt: new Date().toISOString(),
+    };
+    saveSettingsProfiles([profile, ...settingsProfiles]);
+    setSelectedSettingsProfileId(profile.id);
+    setSettingsProfileName(name);
+    flashSettingsProfileNotice(`Saved profile: ${name}`);
+  };
+
+  const updateSelectedSettingsProfile = () => {
+    if (!selectedSettingsProfileId) {
+      saveSettingsProfileAsNew();
+      return;
+    }
+    const name = (settingsProfileName || "").trim() || "Creator Focus";
+    const exists = settingsProfiles.some(
+      (profile) => profile.id === selectedSettingsProfileId
+    );
+    if (!exists) {
+      saveSettingsProfileAsNew();
+      return;
+    }
+    const updated = settingsProfiles.map((profile) =>
+      profile.id === selectedSettingsProfileId
+        ? {
+            ...profile,
+            name,
+            settings: buildSettingsProfileSnapshot(),
+            updatedAt: new Date().toISOString(),
+          }
+        : profile
+    );
+    saveSettingsProfiles(updated);
+    flashSettingsProfileNotice(`Updated profile: ${name}`);
+  };
+
+  const loadSelectedSettingsProfile = () => {
+    const profile = settingsProfiles.find(
+      (item) => item.id === selectedSettingsProfileId
+    );
+    if (!profile) {
+      flashSettingsProfileNotice("Select a profile first.");
+      return;
+    }
+    applySettingsObject(profile.settings, { includeText: false });
+    setSettingsProfileName(profile.name);
+    flashSettingsProfileNotice(`Loaded profile: ${profile.name}`);
+  };
+
+  const deleteSelectedSettingsProfile = () => {
+    const profile = settingsProfiles.find(
+      (item) => item.id === selectedSettingsProfileId
+    );
+    if (!profile) {
+      flashSettingsProfileNotice("Select a profile first.");
+      return;
+    }
+    const remaining = settingsProfiles.filter(
+      (item) => item.id !== selectedSettingsProfileId
+    );
+    saveSettingsProfiles(remaining);
+    setSelectedSettingsProfileId("");
+    setSettingsProfileName("Creator Focus");
+    flashSettingsProfileNotice(`Deleted profile: ${profile.name}`);
+  };
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(SETTINGS_PROFILES_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed)) return;
+      const profiles = parsed
+        .filter(
+          (profile) =>
+            profile &&
+            typeof profile.id === "string" &&
+            typeof profile.name === "string" &&
+            profile.settings &&
+            typeof profile.settings === "object"
+        )
+        .slice(0, MAX_SETTINGS_PROFILES);
+      setSettingsProfiles(profiles);
+      if (profiles[0]) {
+        setSelectedSettingsProfileId(profiles[0].id);
+        setSettingsProfileName(profiles[0].name);
+      }
+    } catch (_) {}
+  }, []);
 
   useEffect(() => {
     try {
@@ -717,48 +976,14 @@ Happy recording!`);
     try {
       const raw = localStorage.getItem(SETTINGS_KEY);
       if (!raw) return;
-      const s = JSON.parse(raw);
-      if (s.fontSize != null) setFontSize(s.fontSize);
-      if (s.margin != null) setMargin(s.margin);
-      if (s.lineHeight != null) setLineHeight(s.lineHeight);
-      if (s.scrollSpeed != null) setScrollSpeed(s.scrollSpeed);
-      if (s.bgColor) setBgColor(s.bgColor);
-      if (s.textColor) setTextColor(s.textColor);
-      if (s.highlightColor) setHighlightColor(s.highlightColor);
-      if (typeof s.text === "string") setText(s.text);
-      if (s.followEnabled != null) setFollowEnabled(s.followEnabled);
-      if (s.lookaheadWindow != null) setLookaheadWindow(s.lookaheadWindow);
-      if (s.centerPaddingVh != null) setCenterPaddingVh(s.centerPaddingVh);
-      if (s.showAim != null) setShowAim(s.showAim);
-      if (s.showListeningStatus != null)
-        setShowListeningStatus(!!s.showListeningStatus);
-      if (s.aimMarkerType) setAimMarkerType(s.aimMarkerType);
-      if (s.aimColor) setAimColor(s.aimColor);
-      if (s.aimBrightness != null) setAimBrightness(s.aimBrightness);
-      if (s.aimContrast != null) setAimContrast(s.aimContrast);
-      if (s.aimScale != null) setAimScale(s.aimScale);
-      if (s.aimOffsetX != null) setAimOffsetX(s.aimOffsetX);
-      if (s.aimOffsetY != null) setAimOffsetY(s.aimOffsetY);
-      if (s.textOpacity != null) setTextOpacity(s.textOpacity);
-      if (s.inactiveTextOpacity != null)
-        setInactiveTextOpacity(s.inactiveTextOpacity);
-      if (s.aimOpacity != null) setAimOpacity(s.aimOpacity);
-      if (s.uiOpacity != null) setUiOpacity(s.uiOpacity);
-      if (s.renderMarkdown != null) setRenderMarkdown(s.renderMarkdown);
-      if (s.paragraphSpacingPx != null)
-        setParagraphSpacingPx(s.paragraphSpacingPx);
-      if (s.sidePaddingVw != null) setSidePaddingVw(s.sidePaddingVw);
-      if (s.textAlignStyle) setTextAlignStyle(s.textAlignStyle);
-      if (s.paragraphHighlightOpacity != null)
-        setParagraphHighlightOpacity(s.paragraphHighlightOpacity);
-      if (s.language) setLanguage(s.language);
-      if (s.mirrorX != null) setMirrorX(!!s.mirrorX);
+      applySettingsObject(JSON.parse(raw), { includeText: true });
     } catch (_) {}
   }, []);
 
   // Persist settings on change
   useEffect(() => {
     const s = {
+      settingsProfileVersion: SETTINGS_PROFILE_VERSION,
       fontSize,
       margin,
       lineHeight,
@@ -2548,6 +2773,161 @@ Happy recording!`);
               >
                 Reset Settings
               </button>
+
+              <div
+                style={{
+                  marginBottom: "20px",
+                  padding: "12px",
+                  borderRadius: "10px",
+                  border: "1px solid #333",
+                  background: "#0f0f0f",
+                }}
+              >
+                <div
+                  style={{
+                    color: "white",
+                    fontWeight: "bold",
+                    marginBottom: "8px",
+                  }}
+                >
+                  Profile Settings
+                </div>
+                <div
+                  style={{
+                    color: "#aaa",
+                    fontSize: "12px",
+                    lineHeight: 1.4,
+                    marginBottom: "10px",
+                  }}
+                >
+                  Save and load visual/tracking setups. Profiles never overwrite
+                  your current script text.
+                </div>
+                <input
+                  value={settingsProfileName}
+                  onChange={(event) => setSettingsProfileName(event.target.value)}
+                  placeholder="Profile name"
+                  style={{
+                    width: "100%",
+                    marginBottom: "8px",
+                    padding: "9px 10px",
+                    borderRadius: "8px",
+                    border: "1px solid #444",
+                    background: "#050505",
+                    color: "white",
+                    boxSizing: "border-box",
+                  }}
+                />
+                <select
+                  value={selectedSettingsProfileId}
+                  onChange={(event) => {
+                    const id = event.target.value;
+                    setSelectedSettingsProfileId(id);
+                    const profile = settingsProfiles.find(
+                      (item) => item.id === id
+                    );
+                    if (profile) setSettingsProfileName(profile.name);
+                  }}
+                  style={{
+                    width: "100%",
+                    marginBottom: "10px",
+                    padding: "9px 10px",
+                    borderRadius: "8px",
+                    border: "1px solid #444",
+                    background: "#050505",
+                    color: "white",
+                    boxSizing: "border-box",
+                  }}
+                >
+                  <option value="">No saved profile selected</option>
+                  {settingsProfiles.map((profile) => (
+                    <option key={profile.id} value={profile.id}>
+                      {profile.name}
+                    </option>
+                  ))}
+                </select>
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "1fr 1fr",
+                    gap: "8px",
+                  }}
+                >
+                  <button
+                    onClick={loadSelectedSettingsProfile}
+                    disabled={!selectedSettingsProfileId}
+                    style={{
+                      padding: "8px 10px",
+                      borderRadius: "8px",
+                      border: "1px solid #555",
+                      background: selectedSettingsProfileId
+                        ? "#1565c0"
+                        : "#1f1f1f",
+                      color: "white",
+                      cursor: selectedSettingsProfileId ? "pointer" : "default",
+                      fontWeight: "bold",
+                    }}
+                  >
+                    Load
+                  </button>
+                  <button
+                    onClick={saveSettingsProfileAsNew}
+                    style={{
+                      padding: "8px 10px",
+                      borderRadius: "8px",
+                      border: "1px solid #555",
+                      background: "#2e7d32",
+                      color: "white",
+                      cursor: "pointer",
+                      fontWeight: "bold",
+                    }}
+                  >
+                    Save New
+                  </button>
+                  <button
+                    onClick={updateSelectedSettingsProfile}
+                    style={{
+                      padding: "8px 10px",
+                      borderRadius: "8px",
+                      border: "1px solid #555",
+                      background: "#37474f",
+                      color: "white",
+                      cursor: "pointer",
+                      fontWeight: "bold",
+                    }}
+                  >
+                    Update
+                  </button>
+                  <button
+                    onClick={deleteSelectedSettingsProfile}
+                    disabled={!selectedSettingsProfileId}
+                    style={{
+                      padding: "8px 10px",
+                      borderRadius: "8px",
+                      border: "1px solid #5b1f1f",
+                      background: selectedSettingsProfileId
+                        ? "#7f1d1d"
+                        : "#1f1f1f",
+                      color: "white",
+                      cursor: selectedSettingsProfileId ? "pointer" : "default",
+                      fontWeight: "bold",
+                    }}
+                  >
+                    Delete
+                  </button>
+                </div>
+                {settingsProfileNotice && (
+                  <div
+                    style={{
+                      color: "#90caf9",
+                      fontSize: "12px",
+                      marginTop: "9px",
+                    }}
+                  >
+                    {settingsProfileNotice}
+                  </div>
+                )}
+              </div>
 
               <div style={{ marginBottom: "20px" }}>
                 <label
