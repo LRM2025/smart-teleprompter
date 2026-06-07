@@ -150,8 +150,8 @@ describe("Settings persistence", () => {
     expect(screen.getByPlaceholderText("Profile name")).toBeInTheDocument();
     expect(screen.getByText("Save New")).toBeInTheDocument();
     expect(screen.getByText("Update")).toBeInTheDocument();
-    expect(screen.getByText("Read-ahead cue")).toBeInTheDocument();
-    expect(screen.getByText("Cue lead: 2 words")).toBeInTheDocument();
+    expect(screen.getByText("Read-ahead focus")).toBeInTheDocument();
+    expect(screen.getByText("Upcoming focus: 2 words")).toBeInTheDocument();
   });
 
   it("saves profile settings without copying script text", async () => {

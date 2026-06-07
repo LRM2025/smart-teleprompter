@@ -24,6 +24,24 @@ describe("speech matcher", () => {
     ).toBe(3);
   });
 
+  it("advances through cumulative interim phrases from Chrome", () => {
+    const normalizedWords = normalizeScript(
+      "Let's talk about the moment a shared lead turns into a nightmare"
+    );
+    const tokens = normalizeTranscript(
+      "Let's talk about the moment a shared lead turns"
+    );
+
+    expect(
+      findSequentialInterimIndex({
+        tokens,
+        normalizedWords,
+        startIndex: 2,
+        maxWindow: 12,
+      })
+    ).toBe(8);
+  });
+
   it("does not jump to a later repeated word when intermediate words were not matched", () => {
     const normalizedWords = normalizeScript(
       "Welcome to Smart Teleprompter the free open source Teleprompter app"

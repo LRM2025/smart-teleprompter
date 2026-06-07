@@ -421,7 +421,16 @@ Happy recording!`);
           normalizedWords: normalizedWordsRef.current,
           startIndex,
           maxSequence: 5,
+          maxWindow: Math.min(Math.max(lookaheadWindow, 3), 12),
         });
+      }
+
+      if (nextIndex === -1) {
+        const { index } = tryAdvanceByTokens(tokens, startIndex, {
+          maxWindow: Math.min(Math.max(lookaheadWindow, 3), 12),
+          maxSoftSkip: 1,
+        });
+        nextIndex = index;
       }
 
       if (nextIndex === -1 && isFinal) {
@@ -1331,17 +1340,12 @@ Happy recording!`);
     return wordRect.top - anchorY;
   };
 
-  const getReadAheadCueIndex = (baseIndex) => {
+  const getActiveWordIndex = (baseIndex) => {
     const totalWords =
       wordsRef.current.length || normalizedWordsRef.current.length || 0;
     if (totalWords <= 0) return -1;
-    if (baseIndex < 0) return showReadAheadCue ? 0 : -1;
-    if (!showReadAheadCue) return baseIndex;
-    const offset = Math.max(
-      0,
-      Math.min(8, Math.round(Number(readAheadWords) || 0))
-    );
-    return Math.min(totalWords - 1, baseIndex + offset);
+    if (baseIndex < 0) return 0;
+    return Math.min(totalWords - 1, baseIndex);
   };
 
   useEffect(() => {
@@ -1367,7 +1371,7 @@ Happy recording!`);
         }
         setCurrentWordIndex(next);
         // cancel ongoing scroll and start a fresh center to word
-        const cueNext = getReadAheadCueIndex(next);
+        const cueNext = getActiveWordIndex(next);
         scrollAnimTokenRef.current++;
         // Use our smooth scroller; it writes to container scrollTop
         centerOnWordSmooth(
@@ -1421,7 +1425,7 @@ Happy recording!`);
     const active = isListening || isPlaying;
     if (!active && !followEnabled) return;
     if (!textContainerRef.current) return;
-    const cueWordIndex = getReadAheadCueIndex(currentWordIndex);
+    const cueWordIndex = getActiveWordIndex(currentWordIndex);
     if (cueWordIndex < 0) return;
 
     const logicalLineIdx = getLineIdxForWord(cueWordIndex);
@@ -1461,7 +1465,7 @@ Happy recording!`);
     const tick = () => {
       const active = isListening || isPlaying;
       if (active && !programmaticScrollRef.current) {
-        const idx = getReadAheadCueIndex(currentWordIndexRef.current);
+        const idx = getActiveWordIndex(currentWordIndexRef.current);
         if (idx >= 0) {
           const approxLinePx = Math.max(1, fontSize * lineHeight * 1.0);
           const delta = Math.abs(getWordAnchorDelta(idx));
@@ -1737,7 +1741,7 @@ Happy recording!`);
           prevVisualLineIdxRef.current = -1;
           const currentIdx =
             currentWordIndexRef.current >= 0 ? currentWordIndexRef.current : 0;
-          const cueIdx = getReadAheadCueIndex(currentIdx);
+          const cueIdx = getActiveWordIndex(currentIdx);
           scrollAnimTokenRef.current++;
           centerOnWordSmooth(cueIdx >= 0 ? cueIdx : currentIdx);
         }, 50);
@@ -1762,7 +1766,7 @@ Happy recording!`);
         setTimeout(() => {
           prevLineIdxRef.current = -1; // force first-centering
           prevVisualLineIdxRef.current = -1;
-          const cueIdx = getReadAheadCueIndex(0);
+          const cueIdx = getActiveWordIndex(0);
           scrollAnimTokenRef.current++;
           centerOnWordSmooth(cueIdx >= 0 ? cueIdx : 0);
           // init stagnation trackers
@@ -1773,7 +1777,7 @@ Happy recording!`);
       } else {
         setTimeout(() => {
           prevVisualLineIdxRef.current = -1;
-          const cueIdx = getReadAheadCueIndex(currentWordIndexRef.current);
+          const cueIdx = getActiveWordIndex(currentWordIndexRef.current);
           scrollAnimTokenRef.current++;
           centerOnWordSmooth(
             cueIdx >= 0 ? cueIdx : currentWordIndexRef.current
@@ -2161,7 +2165,7 @@ Happy recording!`);
     );
   };
 
-  const visualCueWordIndex = getReadAheadCueIndex(currentWordIndex);
+  const activeWordIndex = getActiveWordIndex(currentWordIndex);
 
   return (
     <main
@@ -3547,7 +3551,7 @@ Happy recording!`);
                     marginBottom: "8px",
                   }}
                 >
-                  Read-ahead cue
+                  Read-ahead focus
                 </label>
                 <button
                   onClick={() => setShowReadAheadCue((value) => !value)}
@@ -3564,15 +3568,15 @@ Happy recording!`);
                   }}
                 >
                   {showReadAheadCue
-                    ? "On - show the next cue word"
-                    : "Off - highlight spoken word only"}
+                    ? "On - brighten upcoming words"
+                    : "Off - current word only"}
                 </button>
                 <div
                   style={{ color: "#aaa", fontSize: "12px", marginBottom: "8px" }}
                 >
-                  Recommended teleprompter mode: keep the visual cue slightly
-                  ahead of the recognized word so your eyes read forward instead
-                  of chasing the last spoken word.
+                  Recommended teleprompter mode: keep the current recognized
+                  word as the main highlight, and gently brighten the next words
+                  so your eyes can read forward without a false prediction.
                 </div>
               </div>
 
@@ -3584,7 +3588,7 @@ Happy recording!`);
                     marginBottom: "8px",
                   }}
                 >
-                  Cue lead: {readAheadWords}{" "}
+                  Upcoming focus: {readAheadWords}{" "}
                   {readAheadWords === 1 ? "word" : "words"}
                 </label>
                 <div
@@ -4484,7 +4488,7 @@ Happy recording!`);
             const lineStart = lineStartIndex[lineIdx] || 0;
             const lineEnd = lineStart + lineWordsLocal.length - 1;
             const isCurrentLine =
-              visualCueWordIndex >= lineStart && visualCueWordIndex <= lineEnd;
+              activeWordIndex >= lineStart && activeWordIndex <= lineEnd;
             return (
               <div
                 key={lineIdx}
@@ -4503,38 +4507,45 @@ Happy recording!`);
               >
                 {lineWordsLocal.map((word, i) => {
                   const index = lineStart + i;
-                  const isCue = index === visualCueWordIndex;
-                  const isSpoken =
+                  const isCurrent = index === activeWordIndex;
+                  const isUpcoming =
+                    showReadAheadCue &&
                     currentWordIndex >= 0 &&
-                    index === currentWordIndex &&
-                    index !== visualCueWordIndex;
+                    index > activeWordIndex &&
+                    index <=
+                      activeWordIndex +
+                        Math.max(
+                          0,
+                          Math.min(8, Math.round(Number(readAheadWords) || 0))
+                        );
                   return (
                     <span
                       key={index}
                       id={`word-${index}`}
                       style={{
                         backgroundColor:
-                          isCue && showHighlight
+                          isCurrent && showHighlight
                             ? highlightColor
-                            : isSpoken && showHighlight
-                            ? `${highlightColor}22`
+                            : isUpcoming && showHighlight
+                            ? `${highlightColor}18`
                             : "transparent",
-                        color: isCue && showHighlight ? "#050505" : textColor,
-                        opacity: isCue
+                        color:
+                          isCurrent && showHighlight ? "#050505" : textColor,
+                        opacity: isCurrent
                           ? 1
-                          : isSpoken
-                          ? Math.max(inactiveTextOpacity, 0.82)
+                          : isUpcoming
+                          ? Math.max(inactiveTextOpacity, 0.92)
                           : inactiveTextOpacity,
                         borderRadius: "2px",
                         boxShadow:
-                          isCue && showHighlight
+                          isCurrent && showHighlight
                             ? "0 0 0 1px rgba(0,0,0,0.25)"
-                            : isSpoken && showHighlight
+                            : isUpcoming && showHighlight
                             ? `inset 0 -0.12em 0 ${highlightColor}66`
                             : "none",
                         transition:
                           "background-color 0.08s ease, color 0.08s ease, opacity 0.08s ease, box-shadow 0.08s ease",
-                        fontWeight: isCue && showHighlight ? 700 : "normal",
+                        fontWeight: isCurrent && showHighlight ? 700 : "normal",
                         cursor: "pointer",
                       }}
                       onClick={() => setCurrentWordIndex(index)}

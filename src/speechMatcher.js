@@ -32,6 +32,7 @@ export function findSequentialInterimIndex({
   normalizedWords,
   startIndex,
   maxSequence = 5,
+  maxWindow = 12,
 }) {
   const candidates = tokens.filter(Boolean).slice(-maxSequence);
   if (!candidates.length || startIndex < 0) return -1;
@@ -54,6 +55,28 @@ export function findSequentialInterimIndex({
       }
     }
     if (ok) return startIndex + n - 1;
+  }
+
+  // Chrome often returns interim speech as a cumulative phrase from the start
+  // of the utterance, not just the next unread words. Match the latest phrase
+  // suffix inside a tight forward window so live tracking keeps moving while
+  // still avoiding single-word jumps to later repeated words.
+  const windowEnd = Math.min(
+    normalizedWords.length,
+    startIndex + Math.max(1, maxWindow)
+  );
+  for (let n = maxLen; n >= 2; n--) {
+    const seq = candidates.slice(-n);
+    for (let i = startIndex; i <= windowEnd - n; i++) {
+      let ok = true;
+      for (let k = 0; k < n; k++) {
+        if (!tokensEqual(normalizedWords[i + k], seq[k])) {
+          ok = false;
+          break;
+        }
+      }
+      if (ok) return i + n - 1;
+    }
   }
 
   // Soft match only against the immediate next word. This avoids jumping to a
