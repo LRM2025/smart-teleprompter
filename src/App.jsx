@@ -188,6 +188,11 @@ Happy recording!`);
   const [centerPaddingVh, setCenterPaddingVh] = useState(45);
   const [showCenterLine, setShowCenterLine] = useState(false);
   const [showAim, setShowAim] = useState(true);
+  const [showListeningStatus, setShowListeningStatus] = useState(false);
+  const [aimMarkerType, setAimMarkerType] = useState("elgato");
+  const [aimColor, setAimColor] = useState("#8fb8ff");
+  const [aimBrightness, setAimBrightness] = useState(1);
+  const [aimContrast, setAimContrast] = useState(1.1);
   const [showHighlight, setShowHighlight] = useState(true);
   const [aimOffsetX, setAimOffsetX] = useState(0);
   const [aimOffsetY, setAimOffsetY] = useState(0);
@@ -485,6 +490,11 @@ Happy recording!`);
     lookaheadWindow: 10,
     centerPaddingVh: 45,
     showAim: true,
+    showListeningStatus: false,
+    aimMarkerType: "elgato",
+    aimColor: "#8fb8ff",
+    aimBrightness: 1,
+    aimContrast: 1.1,
     aimOffsetX: 0,
     aimOffsetY: 0,
     textOpacity: 0.8,
@@ -511,6 +521,11 @@ Happy recording!`);
     setLookaheadWindow(defaultSettings.lookaheadWindow);
     setCenterPaddingVh(defaultSettings.centerPaddingVh);
     setShowAim(defaultSettings.showAim);
+    setShowListeningStatus(defaultSettings.showListeningStatus);
+    setAimMarkerType(defaultSettings.aimMarkerType);
+    setAimColor(defaultSettings.aimColor);
+    setAimBrightness(defaultSettings.aimBrightness);
+    setAimContrast(defaultSettings.aimContrast);
     setAimOffsetX(defaultSettings.aimOffsetX);
     setAimOffsetY(defaultSettings.aimOffsetY);
     setTextOpacity(defaultSettings.textOpacity);
@@ -654,6 +669,12 @@ Happy recording!`);
       if (s.lookaheadWindow != null) setLookaheadWindow(s.lookaheadWindow);
       if (s.centerPaddingVh != null) setCenterPaddingVh(s.centerPaddingVh);
       if (s.showAim != null) setShowAim(s.showAim);
+      if (s.showListeningStatus != null)
+        setShowListeningStatus(!!s.showListeningStatus);
+      if (s.aimMarkerType) setAimMarkerType(s.aimMarkerType);
+      if (s.aimColor) setAimColor(s.aimColor);
+      if (s.aimBrightness != null) setAimBrightness(s.aimBrightness);
+      if (s.aimContrast != null) setAimContrast(s.aimContrast);
       if (s.aimOffsetX != null) setAimOffsetX(s.aimOffsetX);
       if (s.aimOffsetY != null) setAimOffsetY(s.aimOffsetY);
       if (s.textOpacity != null) setTextOpacity(s.textOpacity);
@@ -685,6 +706,11 @@ Happy recording!`);
       lookaheadWindow,
       centerPaddingVh,
       showAim,
+      showListeningStatus,
+      aimMarkerType,
+      aimColor,
+      aimBrightness,
+      aimContrast,
       aimOffsetX,
       aimOffsetY,
       textOpacity,
@@ -715,6 +741,11 @@ Happy recording!`);
     lookaheadWindow,
     centerPaddingVh,
     showAim,
+    showListeningStatus,
+    aimMarkerType,
+    aimColor,
+    aimBrightness,
+    aimContrast,
     aimOffsetX,
     aimOffsetY,
     textOpacity,
@@ -725,6 +756,8 @@ Happy recording!`);
     sidePaddingVw,
     textAlignStyle,
     paragraphHighlightOpacity,
+    language,
+    mirrorX,
     text,
   ]);
 
@@ -1674,6 +1707,85 @@ Happy recording!`);
     setTimeout(() => {
       programmaticScrollRef.current = false;
     }, 0);
+  };
+
+  const aimMarkerSize = aimMarkerType === "line" ? 64 : 42;
+  const aimMarkerFilter = `brightness(${aimBrightness}) contrast(${aimContrast})`;
+  const aimMarkerCommon = {
+    width: aimMarkerSize,
+    height: aimMarkerSize,
+    viewBox: `0 0 ${aimMarkerSize} ${aimMarkerSize}`,
+    fill: "none",
+    stroke: aimColor,
+    strokeWidth: 2.5,
+    strokeLinecap: "round",
+    strokeLinejoin: "round",
+    style: {
+      opacity: aimOpacity,
+      filter: aimMarkerFilter,
+      overflow: "visible",
+    },
+  };
+
+  const renderAimMarker = () => {
+    const center = aimMarkerSize / 2;
+
+    if (aimMarkerType === "dot") {
+      return (
+        <svg {...aimMarkerCommon}>
+          <circle cx={center} cy={center} r="12" opacity="0.28" fill={aimColor} />
+          <circle cx={center} cy={center} r="5.5" fill={aimColor} stroke="none" />
+          <circle cx={center} cy={center} r="17" opacity="0.55" />
+        </svg>
+      );
+    }
+
+    if (aimMarkerType === "brackets") {
+      return (
+        <svg {...aimMarkerCommon}>
+          <path d="M7 15 V7 H15" />
+          <path d="M27 7 H35 V15" />
+          <path d="M35 27 V35 H27" />
+          <path d="M15 35 H7 V27" />
+          <circle cx="21" cy="21" r="2.5" fill={aimColor} stroke="none" />
+        </svg>
+      );
+    }
+
+    if (aimMarkerType === "line") {
+      return (
+        <svg {...aimMarkerCommon}>
+          <path d="M7 21 H57" opacity="0.9" />
+          <path d="M32 10 V32" opacity="0.45" />
+          <circle cx="32" cy="21" r="4" fill={aimColor} stroke="none" />
+        </svg>
+      );
+    }
+
+    if (aimMarkerType === "crosshair") {
+      return (
+        <svg {...aimMarkerCommon}>
+          <circle cx="21" cy="21" r="3" />
+          <path d="M21 4 V12" />
+          <path d="M21 30 V38" />
+          <path d="M4 21 H12" />
+          <path d="M30 21 H38" />
+          <circle cx="21" cy="21" r="15" opacity="0.4" />
+        </svg>
+      );
+    }
+
+    return (
+      <svg {...aimMarkerCommon}>
+        <circle cx="21" cy="21" r="15" opacity="0.28" fill={aimColor} />
+        <circle cx="21" cy="21" r="14" opacity="0.75" />
+        <circle cx="21" cy="21" r="4" fill={aimColor} stroke="none" />
+        <path d="M21 2 V9" opacity="0.7" />
+        <path d="M21 33 V40" opacity="0.7" />
+        <path d="M2 21 H9" opacity="0.7" />
+        <path d="M33 21 H40" opacity="0.7" />
+      </svg>
+    );
   };
 
   return (
@@ -3172,6 +3284,183 @@ Happy recording!`);
                 >
                   {showAim ? "Disable" : "Enable"}
                 </button>
+
+                <label
+                  style={{
+                    color: "white",
+                    display: "block",
+                    marginBottom: "8px",
+                  }}
+                >
+                  Listening badge: {showListeningStatus ? "On" : "Off"}
+                </label>
+                <button
+                  onClick={() => setShowListeningStatus(!showListeningStatus)}
+                  style={{
+                    width: "100%",
+                    padding: "10px 12px",
+                    borderRadius: "8px",
+                    border: "1px solid #555",
+                    background: showListeningStatus ? "#2e7d32" : "#37474f",
+                    color: "white",
+                    cursor: "pointer",
+                    marginBottom: "16px",
+                  }}
+                  aria-label="Toggle Listening Status Badge"
+                >
+                  {showListeningStatus ? "Hide while recording" : "Show while recording"}
+                </button>
+
+                <div style={{ marginBottom: "16px" }}>
+                  <label
+                    style={{
+                      color: "white",
+                      display: "block",
+                      marginBottom: "8px",
+                    }}
+                  >
+                    Center marker style
+                  </label>
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+                      gap: "8px",
+                    }}
+                  >
+                    {[
+                      ["elgato", "Soft blue"],
+                      ["crosshair", "Crosshair"],
+                      ["brackets", "Brackets"],
+                      ["dot", "Dot"],
+                      ["line", "Reading line"],
+                    ].map(([value, label]) => (
+                      <button
+                        key={value}
+                        onClick={() => setAimMarkerType(value)}
+                        style={{
+                          padding: "9px 10px",
+                          borderRadius: "8px",
+                          border:
+                            aimMarkerType === value
+                              ? `1px solid ${aimColor}`
+                              : "1px solid #555",
+                          background:
+                            aimMarkerType === value ? "#1e314f" : "#0f0f0f",
+                          color: "white",
+                          cursor: "pointer",
+                          fontSize: "13px",
+                          fontWeight: aimMarkerType === value ? "700" : "500",
+                        }}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "1fr 1fr",
+                    gap: "12px",
+                    marginBottom: "16px",
+                  }}
+                >
+                  <div>
+                    <label
+                      style={{
+                        color: "white",
+                        display: "block",
+                        marginBottom: "8px",
+                      }}
+                    >
+                      Marker color
+                    </label>
+                    <input
+                      type="color"
+                      value={aimColor}
+                      onChange={(e) => setAimColor(e.target.value)}
+                      style={{
+                        width: "100%",
+                        height: "38px",
+                        cursor: "pointer",
+                      }}
+                    />
+                  </div>
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "flex-end",
+                    }}
+                  >
+                    <button
+                      onClick={() => {
+                        setAimMarkerType("elgato");
+                        setAimColor("#8fb8ff");
+                        setAimBrightness(1);
+                        setAimContrast(1.1);
+                        setAimOpacity(1);
+                      }}
+                      style={{
+                        width: "100%",
+                        padding: "10px 12px",
+                        borderRadius: "8px",
+                        border: "1px solid #555",
+                        background: "#37474f",
+                        color: "white",
+                        cursor: "pointer",
+                      }}
+                    >
+                      Reset marker look
+                    </button>
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: "16px" }}>
+                  <label
+                    style={{
+                      color: "white",
+                      display: "block",
+                      marginBottom: "8px",
+                    }}
+                  >
+                    Marker brightness: {Math.round(aimBrightness * 100)}%
+                  </label>
+                  <input
+                    type="range"
+                    min="0.5"
+                    max="1.8"
+                    step="0.05"
+                    value={aimBrightness}
+                    onChange={(e) =>
+                      setAimBrightness(Number(e.target.value))
+                    }
+                    style={{ width: "100%" }}
+                  />
+                </div>
+
+                <div style={{ marginBottom: "16px" }}>
+                  <label
+                    style={{
+                      color: "white",
+                      display: "block",
+                      marginBottom: "8px",
+                    }}
+                  >
+                    Marker contrast: {Math.round(aimContrast * 100)}%
+                  </label>
+                  <input
+                    type="range"
+                    min="0.5"
+                    max="2"
+                    step="0.05"
+                    value={aimContrast}
+                    onChange={(e) => setAimContrast(Number(e.target.value))}
+                    style={{ width: "100%" }}
+                  />
+                </div>
+
                 <div style={{ display: "flex", gap: "10px" }}>
                   <div style={{ flex: 1 }}>
                     <label
@@ -3506,27 +3795,10 @@ Happy recording!`);
               transform: "translate(-50%, -50%)",
               zIndex: 1200,
               pointerEvents: "none",
-              opacity: 0.8,
             }}
             aria-hidden="true"
           >
-            <svg
-              width="28"
-              height="28"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="#ffeb3b"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              style={{ opacity: aimOpacity }}
-            >
-              <circle cx="12" cy="12" r="2" />
-              <path d="M12 1v4" />
-              <path d="M12 19v4" />
-              <path d="M1 12h4" />
-              <path d="M19 12h4" />
-            </svg>
+            {renderAimMarker()}
           </div>
         )}
         <div
@@ -3622,7 +3894,7 @@ Happy recording!`);
       )}
 
       {/* Status Indicator */}
-      {isListening && (
+      {isListening && showListeningStatus && (
         <div
           style={{
             position: "fixed",

@@ -19,6 +19,11 @@ describe("Settings persistence", () => {
     expect(settings).toHaveProperty("fontSize");
     expect(settings).toHaveProperty("bgColor");
     expect(settings).toHaveProperty("textColor");
+    expect(settings).toHaveProperty("showListeningStatus", false);
+    expect(settings).toHaveProperty("aimMarkerType", "elgato");
+    expect(settings).toHaveProperty("aimColor", "#8fb8ff");
+    expect(settings).toHaveProperty("aimBrightness", 1);
+    expect(settings).toHaveProperty("aimContrast", 1.1);
   });
 
   it("restores custom settings from localStorage", async () => {
@@ -34,6 +39,11 @@ describe("Settings persistence", () => {
       centerPaddingVh: 45,
       showCenterLine: false,
       showAim: true,
+      showListeningStatus: true,
+      aimMarkerType: "brackets",
+      aimColor: "#00aaff",
+      aimBrightness: 1.25,
+      aimContrast: 1.4,
       showHighlight: true,
       aimOffsetX: 0,
       aimOffsetY: 0,
@@ -56,6 +66,11 @@ describe("Settings persistence", () => {
     const saved = JSON.parse(localStorage.getItem(SETTINGS_KEY));
     expect(saved.bgColor).toBe("#111111");
     expect(saved.textColor).toBe("#00ff00");
+    expect(saved.showListeningStatus).toBe(true);
+    expect(saved.aimMarkerType).toBe("brackets");
+    expect(saved.aimColor).toBe("#00aaff");
+    expect(saved.aimBrightness).toBe(1.25);
+    expect(saved.aimContrast).toBe(1.4);
   });
 
   it("includes script text in saved settings", async () => {
