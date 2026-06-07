@@ -207,7 +207,7 @@ Happy recording!`);
   const [showHighlight, setShowHighlight] = useState(true);
   const [smoothLiveGuide, setSmoothLiveGuide] = useState(true);
   const [showReadAheadCue, setShowReadAheadCue] = useState(true);
-  const [readAheadWords, setReadAheadWords] = useState(2);
+  const [readAheadWords, setReadAheadWords] = useState(1);
   const [aimOffsetX, setAimOffsetX] = useState(0);
   const [aimOffsetY, setAimOffsetY] = useState(0);
   const [textOpacity, setTextOpacity] = useState(1);
@@ -294,6 +294,7 @@ Happy recording!`);
   const guideWordIndexRef = useRef(-1);
   const lastRecognizedIndexRef = useRef(-1);
   const lastRecognizedAtRef = useRef(performance.now());
+  const lastSpeechResultWasFinalRef = useRef(false);
   const estimatedWordsPerSecondRef = useRef(2.35);
   const textContainerRef = useRef(null);
   const autoScrollInterval = useRef(null);
@@ -396,11 +397,15 @@ Happy recording!`);
       if (tokens.length === 0) return;
 
       const isFinal = !!(chosen && chosen.isFinal);
+      lastSpeechResultWasFinalRef.current = isFinal;
 
       // mic activity indicator
       setIsSpeaking(true);
       if (speakingTimeoutRef.current) clearTimeout(speakingTimeoutRef.current);
-      speakingTimeoutRef.current = setTimeout(() => setIsSpeaking(false), 1000);
+      speakingTimeoutRef.current = setTimeout(
+        () => setIsSpeaking(false),
+        GUIDE_SPEECH_GRACE_MS
+      );
       try {
         window.__lastMicResultTs = performance.now();
       } catch (_) {}
@@ -572,8 +577,11 @@ Happy recording!`);
     return Math.max(150, Math.round(2200 - s * 20));
   };
 
+  const GUIDE_SPEECH_GRACE_MS = 650;
+  const GUIDE_MAX_PREDICTIVE_ADVANCE_WORDS = 1;
+
   const SETTINGS_KEY = "tp_settings_v1";
-  const SETTINGS_PROFILE_VERSION = 5;
+  const SETTINGS_PROFILE_VERSION = 6;
   const defaultSettings = {
     settingsProfileVersion: SETTINGS_PROFILE_VERSION,
     fontSize: 36,
@@ -590,7 +598,7 @@ Happy recording!`);
     showListeningStatus: false,
     smoothLiveGuide: true,
     showReadAheadCue: true,
-    readAheadWords: 2,
+    readAheadWords: 1,
     aimMarkerType: "square",
     aimColor: "#8fb8ff",
     aimBrightness: 1,
@@ -651,7 +659,7 @@ Happy recording!`);
         next.showReadAheadCue = defaultSettings.showReadAheadCue;
       if (next.smoothLiveGuide == null)
         next.smoothLiveGuide = defaultSettings.smoothLiveGuide;
-      if (next.readAheadWords == null)
+      if (next.readAheadWords == null || next.readAheadWords === 2)
         next.readAheadWords = defaultSettings.readAheadWords;
     }
     next.settingsProfileVersion = SETTINGS_PROFILE_VERSION;
@@ -1720,7 +1728,10 @@ Happy recording!`);
       lastRecognizedAtRef.current = now;
 
       const lead =
-        smoothLiveGuide && isListening && showReadAheadCue
+        smoothLiveGuide &&
+        isListening &&
+        showReadAheadCue &&
+        !lastSpeechResultWasFinalRef.current
           ? Math.max(0, Math.min(8, Math.round(Number(readAheadWords) || 0)))
           : 0;
       const nextGuideIndex = getActiveWordIndex(currentWordIndex + lead);
@@ -1757,15 +1768,37 @@ Happy recording!`);
     const tick = (now) => {
       const recognizedIndex = currentWordIndexRef.current;
       if (recognizedIndex >= 0) {
+        const msSinceSpeechResult = now - lastMicResultTsRef.current;
+        if (
+          lastSpeechResultWasFinalRef.current ||
+          msSinceSpeechResult > GUIDE_SPEECH_GRACE_MS
+        ) {
+          const frozenIndex = getActiveWordIndex(recognizedIndex);
+          if (
+            frozenIndex >= 0 &&
+            guideWordIndexRef.current !== frozenIndex
+          ) {
+            guideWordIndexRef.current = frozenIndex;
+            setGuideWordIndex(frozenIndex);
+          }
+          lastRecognizedAtRef.current = now;
+          rafId = requestAnimationFrame(tick);
+          return;
+        }
+
         const lead = showReadAheadCue
           ? Math.max(0, Math.min(8, Math.round(Number(readAheadWords) || 0)))
           : 0;
         const elapsedSeconds = Math.max(
           0,
-          Math.min(2.2, (now - lastRecognizedAtRef.current) / 1000)
+          Math.min(
+            GUIDE_SPEECH_GRACE_MS / 1000,
+            (now - lastRecognizedAtRef.current) / 1000
+          )
         );
-        const predictedAdvance = Math.floor(
-          elapsedSeconds * estimatedWordsPerSecondRef.current
+        const predictedAdvance = Math.min(
+          GUIDE_MAX_PREDICTIVE_ADVANCE_WORDS,
+          Math.floor(elapsedSeconds * estimatedWordsPerSecondRef.current)
         );
         const nextGuideIndex = getActiveWordIndex(
           recognizedIndex + lead + predictedAdvance
@@ -1842,6 +1875,7 @@ Happy recording!`);
         }
         safeRestartRecognition(80);
         lastRecognizedAtRef.current = performance.now();
+        lastSpeechResultWasFinalRef.current = false;
         if (currentWordIndexRef.current < 0) {
           guideWordIndexRef.current = -1;
           setGuideWordIndex(-1);
@@ -2151,6 +2185,7 @@ Happy recording!`);
     guideWordIndexRef.current = -1;
     lastRecognizedIndexRef.current = -1;
     lastRecognizedAtRef.current = performance.now();
+    lastSpeechResultWasFinalRef.current = false;
     setCurrentWordIndex(-1);
     setGuideWordIndex(-1);
 

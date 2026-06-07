@@ -23,7 +23,7 @@ describe("Settings persistence", () => {
       expect(saved).not.toBeNull();
     });
     const settings = JSON.parse(localStorage.getItem(SETTINGS_KEY));
-    expect(settings).toHaveProperty("settingsProfileVersion", 5);
+    expect(settings).toHaveProperty("settingsProfileVersion", 6);
     expect(settings).toHaveProperty("fontSize", 36);
     expect(settings).toHaveProperty("lineHeight", 1.55);
     expect(settings).toHaveProperty("bgColor");
@@ -40,7 +40,7 @@ describe("Settings persistence", () => {
     expect(settings).toHaveProperty("paragraphHighlightOpacity", 0);
     expect(settings).toHaveProperty("smoothLiveGuide", true);
     expect(settings).toHaveProperty("showReadAheadCue", true);
-    expect(settings).toHaveProperty("readAheadWords", 2);
+    expect(settings).toHaveProperty("readAheadWords", 1);
   });
 
   it("restores custom settings from localStorage", async () => {
@@ -107,6 +107,7 @@ describe("Settings persistence", () => {
         inactiveTextOpacity: 1,
         paragraphHighlightOpacity: 0.12,
         paragraphSpacingPx: 12,
+        readAheadWords: 2,
         sidePaddingVw: 10,
       })
     );
@@ -115,7 +116,7 @@ describe("Settings persistence", () => {
 
     await waitFor(() => {
       const saved = JSON.parse(localStorage.getItem(SETTINGS_KEY));
-      expect(saved.settingsProfileVersion).toBe(5);
+      expect(saved.settingsProfileVersion).toBe(6);
       expect(saved.fontSize).toBe(36);
     });
 
@@ -131,7 +132,7 @@ describe("Settings persistence", () => {
     expect(saved.sidePaddingVw).toBe(20);
     expect(saved.smoothLiveGuide).toBe(true);
     expect(saved.showReadAheadCue).toBe(true);
-    expect(saved.readAheadWords).toBe(2);
+    expect(saved.readAheadWords).toBe(1);
   });
 
   it("includes script text in saved settings", async () => {
@@ -154,7 +155,7 @@ describe("Settings persistence", () => {
     expect(screen.getByText("Update")).toBeInTheDocument();
     expect(screen.getByText("Smooth live guide")).toBeInTheDocument();
     expect(screen.getByText("Read-ahead focus")).toBeInTheDocument();
-    expect(screen.getByText("Upcoming focus: 2 words")).toBeInTheDocument();
+    expect(screen.getByText("Upcoming focus: 1 word")).toBeInTheDocument();
   });
 
   it("saves profile settings without copying script text", async () => {
