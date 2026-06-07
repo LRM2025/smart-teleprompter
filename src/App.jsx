@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { flushSync } from "react-dom";
 import {
   findInitialSpeechIndex,
   findSequentialInterimIndex,
@@ -377,17 +378,34 @@ Happy recording!`);
     };
 
     rec.onresult = (event) => {
-      // Αν έχουμε ήδη transcript που τρέχει, μην περιμένεις final
-      const hasInterim =
-        event.results.length > 0 &&
-        !event.results[event.results.length - 1].isFinal;
-
-      // Πάρε πρώτα το πιο πρόσφατο interim (πιο γρήγορο)
-      let idx = event.results.length - 1;
-      const latestResult = event.results[idx];
-
-      // Χρησιμοποίησε interim αν υπάρχει, αλλιώς ψάξε για final
-      const chosen = latestResult;
+      let chosen = null;
+      const changedStart = Math.max(0, event.resultIndex || 0);
+      for (let i = event.results.length - 1; i >= changedStart; i--) {
+        const result = event.results[i];
+        const transcript =
+          result && result[0] && result[0].transcript
+            ? result[0].transcript
+            : "";
+        if (!transcript.trim()) continue;
+        if (!result.isFinal) {
+          chosen = result;
+          break;
+        }
+        if (!chosen) chosen = result;
+      }
+      if (!chosen) {
+        for (let i = event.results.length - 1; i >= 0; i--) {
+          const result = event.results[i];
+          const transcript =
+            result && result[0] && result[0].transcript
+              ? result[0].transcript
+              : "";
+          if (transcript.trim()) {
+            chosen = result;
+            break;
+          }
+        }
+      }
 
       const transcript =
         chosen && chosen[0] && chosen[0].transcript ? chosen[0].transcript : "";
@@ -454,7 +472,21 @@ Happy recording!`);
         }
       }
 
-      if (nextIndex !== -1) setCurrentWordIndex(nextIndex);
+      try {
+        window.__tpLastSpeechMatch = {
+          transcript,
+          tokens,
+          isFinal,
+          currentIndex,
+          startIndex,
+          nextIndex,
+          at: performance.now(),
+        };
+      } catch (_) {}
+
+      if (nextIndex !== -1) {
+        commitRecognizedWordIndex(nextIndex, { sync: true });
+      }
     };
 
     rec.onerror = (event) => {
@@ -1351,6 +1383,29 @@ Happy recording!`);
     if (totalWords <= 0) return -1;
     if (baseIndex < 0) return 0;
     return Math.min(totalWords - 1, baseIndex);
+  };
+
+  const commitRecognizedWordIndex = (nextIndex, { sync = false } = {}) => {
+    if (nextIndex < 0 || nextIndex === currentWordIndexRef.current) return;
+    const activeIndex = getActiveWordIndex(nextIndex);
+
+    currentWordIndexRef.current = nextIndex;
+    if (!smoothLiveGuide || !isListeningRef.current) {
+      guideWordIndexRef.current = activeIndex;
+    }
+
+    const commit = () => {
+      setCurrentWordIndex(nextIndex);
+      if (!smoothLiveGuide || !isListeningRef.current) {
+        setGuideWordIndex(activeIndex);
+      }
+    };
+
+    if (sync) {
+      flushSync(commit);
+      return;
+    }
+    commit();
   };
 
   useEffect(() => {
